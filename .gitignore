@@ -5,6 +5,10 @@
 .idea/
 .vscode/
 
+# Compiled binaries
+dist/
+out/
+
 # CMake build files
 CMakeLists.txt.user
 CMakeCache.txt
