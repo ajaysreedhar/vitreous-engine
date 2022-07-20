@@ -13,7 +13,7 @@ add_executable(wayland-test wayland/test-main.cpp)
 target_link_libraries(wayland-test PRIVATE vtest-wlclient)
 
 add_executable(wlglfw-test wl-glfw/test-main.cpp)
-target_link_libraries(wlglfw-test PRIVATE -lglfw)
+target_link_libraries(wlglfw-test PRIVATE -lglfw vtrs-engine)
 
 add_executable(xcb-test xcb-window/test-main.cpp)
 target_link_libraries(xcb-test PRIVATE -lxcb vtrs-engine)
