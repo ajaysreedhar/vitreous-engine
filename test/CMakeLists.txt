@@ -15,5 +15,5 @@ target_link_libraries(wlclient-test PRIVATE vtest-wlclient)
 add_executable(wlglfw-test wl-glfw/test-main.cpp)
 target_link_libraries(wlglfw-test PRIVATE -lglfw vtrs-engine)
 
-add_executable(xcb-test xcb-window/test-main.cpp)
+add_executable(xcb-test xcb-client/test-main.cpp)
 target_link_libraries(xcb-test PRIVATE -lxcb vtrs-engine)
