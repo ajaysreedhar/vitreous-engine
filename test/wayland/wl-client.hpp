@@ -11,6 +11,15 @@ typedef struct zxdg_toplevel_v6 XDGTopLevel;
 typedef struct wl_shm_pool WLSharedPool;
 typedef struct wl_buffer WLBuffer;
 
+struct rgba_pixel {
+    unsigned char blue;
+    unsigned char green;
+    unsigned char red;
+    unsigned char alpha;
+};
+
+typedef struct rgba_pixel RGBAPixel;
+
 class WLClient {
 
 private:
