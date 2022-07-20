@@ -9,5 +9,11 @@ add_library(vtest-wlclient SHARED
 
 target_link_libraries(vtest-wlclient PUBLIC -lwayland-client vtrs-engine)
 
-add_executable(test-wayland wayland/test-main.cpp)
-target_link_libraries(test-wayland PRIVATE vtest-wlclient)
+add_executable(wayland-test wayland/test-main.cpp)
+target_link_libraries(wayland-test PRIVATE vtest-wlclient)
+
+add_executable(wlglfw-test wl-glfw/test-main.cpp)
+target_link_libraries(wlglfw-test PRIVATE -lglfw)
+
+add_executable(xcb-test xcb-window/test-main.cpp)
+target_link_libraries(xcb-test PRIVATE -lxcb vtrs-engine)
