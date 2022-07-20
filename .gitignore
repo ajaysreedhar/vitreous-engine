@@ -1,3 +1,11 @@
+# Filesystem cache
+.DS_Store
+
+# IDEs and editor cache
+.idea/
+.vscode/
+
+# CMake build files
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles
@@ -9,3 +17,9 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 _deps
+
+# Logs and backup files
+*.log
+*.bak
+*.old
+*.old.*
