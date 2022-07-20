@@ -57,36 +57,27 @@ int main() {
     int width = 200;
     int height = 200;
     int stride = width * 4;
-    int size = stride * height;  // bytes
 
     unsigned char* buffer_data = client->getBufferData();
-
-    //*
 
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
 
-            struct pixel {
-                // little-endian ARGB
-                unsigned char blue;
-                unsigned char green;
-                unsigned char red;
-                unsigned char alpha;
-            } *px = (struct pixel *) (buffer_data + y * stride + x * 4);
+            auto pixel = reinterpret_cast<vtest::RGBAPixel*>(buffer_data + y * stride + x * 4);
 
             // draw a cross
             if ((80 < x && x < 120) || (80 < y && y < 120)) {
-                // gradient from blue at the top to white at the bottom
-                px->alpha = 255;
-                px->red = y / height * 255;
-                px->green = px->red;
-                px->blue = 255;
+                pixel->alpha = 255;
+                pixel->red = y / height * 255;
+                pixel->green = pixel->red;
+                pixel->blue = 255;
             } else {
                 // transparent
-                px->alpha = 0;
+                pixel->alpha = 0;
             }
         }
-    }// */
+    }
+
     client->commitSurface();
 
     vtrs::Logger::info("Preparing to dispatch");
