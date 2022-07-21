@@ -76,13 +76,13 @@ public:
     }
 
     template<typename... T> static void warn(T&& ...messages) {
-        std::cerr << "[WARN ] ";
+        std::cerr << "[ WARN] ";
         (printUnpacked_(WARN, messages), ...);
         std::cerr << std::endl;
     }
 
     template<typename... T> static void info(T&& ...messages) {
-        std::cout << "[INFO ] ";
+        std::cout << "[ INFO] ";
         (printUnpacked_(INFO, messages), ...);
         std::cout << std::endl;
     }
