@@ -5,13 +5,14 @@ set(BASEPATH "${CMAKE_SOURCE_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/out/test")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/out/test")
 
-# Test: Vulkan Apps VikingRoom
-add_library(vtest-viking SHARED vulkan-apps/viking-room.cpp vulkan-apps/viking-room.hpp)
-target_link_libraries(vtest-viking PUBLIC ${Vulkan_LIBRARIES} vtrs-engine)
-target_include_directories(vtest-viking PUBLIC ${Vulkan_INCLUDE_DIRS})
+# Library: XCB Client
+add_library(vtest-xcb-client SHARED xcb-client/xcb-window.cpp xcb-client/xcb-window.hpp)
+target_link_libraries(vtest-xcb-client PRIVATE -lxcb vtrs-engine)
 
-add_executable(viking-test vulkan-apps/test-main.cpp)
-target_link_libraries(viking-test PUBLIC ${Vulkan_LIBRARIES} vtrs-engine vtest-viking)
+# Executable: Viking Room
+add_executable(viking-room-test vulkan-apps/viking-room.cpp vulkan-apps/viking-room.hpp vulkan-apps/test-main.cpp)
+target_link_libraries(viking-room-test PUBLIC ${Vulkan_LIBRARIES} vtrs-engine)
+target_include_directories(viking-room-test PUBLIC ${Vulkan_INCLUDE_DIRS} xcb-client)
 
 # Test: Wayland Client
 add_library(vtest-wlclient SHARED
@@ -25,9 +26,9 @@ add_executable(wlclient-test wayland/test-main.cpp)
 target_link_libraries(wlclient-test PRIVATE vtest-wlclient)
 
 # Test: Wayland GLFW Window
-add_executable(glfw-test glfw-window/test-main.cpp)
+add_executable(glfw-test glfw-client/test-main.cpp)
 target_link_libraries(glfw-test PRIVATE -lglfw vtrs-engine)
 
-# Test: XCB Window
-add_executable(xcb-test xcb-window/test-main.cpp)
-target_link_libraries(xcb-test PRIVATE -lxcb vtrs-engine)
+# Executable: XCB Window
+add_executable(xcb-test xcb-client/test-main.cpp)
+target_link_libraries(xcb-test PRIVATE -lxcb vtrs-engine vtest-xcb-client)
