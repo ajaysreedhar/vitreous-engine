@@ -22,15 +22,21 @@
 #include <cstdlib>
 #include "engine/except/runtime-error.hpp"
 #include "engine/platform/logger.hpp"
+#include "xcb-client/xcb-window.hpp"
 #include "viking-room.hpp"
 
 int main() {
     vtrs::Logger::info("Test: Vulkan Demo VikingRoom");
 
+    vtest::XCBWindow* window;
     vtest::VikingRoom* application;
+    uint32_t w_id;
 
     try {
-        application = new vtest::VikingRoom();
+        window = new vtest::XCBWindow();
+        w_id = window->createWindow(800, 600);
+
+        application = new vtest::VikingRoom(window->getConnection(), w_id);
         application->printGPUInfo();
 
     } catch (vtrs::RuntimeError& error) {
@@ -38,6 +44,16 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    while (true) {
+        auto event = window->pollEvents();
+
+        if (event.kind == vtest::WSIWindowEvent::KEY_PRESS && event.eventDetail == 24) {
+            break;
+        }
+    }
+
     delete application;
+    delete window;
+
     return EXIT_SUCCESS;
 }

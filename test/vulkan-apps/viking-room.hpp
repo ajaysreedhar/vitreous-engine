@@ -20,9 +20,11 @@
  */
 
 #pragma once
+#define VK_USE_PLATFORM_XCB_KHR true
 
 #include <optional>
 #include <vulkan/vulkan.h>
+#include "xcb-client/xcb-window.hpp"
 
 namespace vtest {
 
@@ -43,6 +45,7 @@ private:
     VkInstance m_instance;
     VkPhysicalDevice m_physicalGPU;
     VkDevice m_logicalDevice;
+    VkSurfaceKHR m_surface;
 
     /**
      * Finds the GPU usability score after evaluating device properties.
@@ -69,12 +72,12 @@ private:
 
     void initLogicalDevice_(vtest::QueueFamilyIndices);
 
-    void createSurface_();
-
     QueueFamilyIndices findQueueFamilies_();
+    void createSurface_(vtest::XCBConnection*, uint32_t);
 
 public:
     VikingRoom();
+    VikingRoom(vtest::XCBConnection*, uint32_t);
     ~VikingRoom();
 
     /**

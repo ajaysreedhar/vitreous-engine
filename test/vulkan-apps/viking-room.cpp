@@ -92,9 +92,14 @@ void vtest::VikingRoom::initVulkan_() {
     app_info.engineVersion = VK_MAKE_VERSION(0, 1, 0);
     app_info.apiVersion = VK_API_VERSION_1_3;
 
+    std::vector<const char*> extensions;
+    extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+
     VkInstanceCreateInfo create_info {};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &app_info;
+    create_info.enabledExtensionCount = 1;
+    create_info.ppEnabledExtensionNames = extensions.data();
 
     auto result = vkCreateInstance(&create_info, nullptr, &m_instance);
 
@@ -183,6 +188,19 @@ void vtest::VikingRoom::initLogicalDevice_(vtest::QueueFamilyIndices indices) {
     }
 }
 
+void vtest::VikingRoom::createSurface_(vtest::XCBConnection* connection, uint32_t window) {
+    VkXcbSurfaceCreateInfoKHR surface_info {};
+    surface_info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
+    surface_info.connection = connection;
+    surface_info.window = window;
+
+    auto result = vkCreateXcbSurfaceKHR(m_instance, &surface_info, nullptr, &this->m_surface);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to create XCB surface.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+}
+
 /**
  * Public member function definitions.
  *
@@ -197,6 +215,7 @@ void vtest::VikingRoom::initLogicalDevice_(vtest::QueueFamilyIndices indices) {
 vtest::VikingRoom::VikingRoom() :
         m_instance{},
         m_logicalDevice{},
+        m_surface{},
         m_physicalGPU(VK_NULL_HANDLE) {
     initVulkan_();
     initPhysicalGPU_();
@@ -210,10 +229,15 @@ vtest::VikingRoom::VikingRoom() :
     initLogicalDevice_(indices);
 }
 
+vtest::VikingRoom::VikingRoom(vtest::XCBConnection* connection, uint32_t window): VikingRoom() {
+    createSurface_(connection, window);
+}
+
 /**
  * Cleans up.
  */
 vtest::VikingRoom::~VikingRoom() {
+    vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
     vkDestroyDevice(m_logicalDevice, nullptr);
     vkDestroyInstance(m_instance, nullptr);
 }
@@ -255,8 +279,4 @@ void vtest::VikingRoom::printGPUInfo() {
     vtrs::Logger::print("Device Name:", properties.deviceName);
     vtrs::Logger::print("Device Type:", type);
     vtrs::Logger::print("API Version:", properties.apiVersion);
-}
-
-void vtest::VikingRoom::createSurface_() {
-
 }
