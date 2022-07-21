@@ -7,7 +7,7 @@
  * @param kind Error kind from {@link ErrorKind} enum.
  * @param code The error code, defaults to 0.
  */
-vtrs::RuntimeError::RuntimeError(const std::string& message, ErrorKind kind, int code) : std::runtime_error(message) {
+vtrs::RuntimeError::RuntimeError(const std::string& message, ErrorKind kind, int code = 0) : std::runtime_error(message) {
     this->m_code = code;
     this->m_kind = kind;
 }

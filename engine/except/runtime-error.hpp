@@ -18,7 +18,8 @@ public: // *** Public members *** //
      * determine the type and cause of an error.
      */
     enum ErrorKind : int {
-        E_TYPE_VK_RESULT = 120
+        E_TYPE_GENERAL = 120,
+        E_TYPE_VK_RESULT
     };
 
     /**
