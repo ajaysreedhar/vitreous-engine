@@ -40,7 +40,8 @@ public: // *** Public members *** //
      */
     enum ErrorKind : int {
         E_TYPE_GENERAL = 120,
-        E_TYPE_VK_RESULT
+        E_TYPE_VK_RESULT,
+        E_TYPE_XCB_CLIENT
     };
 
     /**
