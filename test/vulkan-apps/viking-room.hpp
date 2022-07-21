@@ -69,6 +69,8 @@ private:
 
     void initLogicalDevice_(vtest::QueueFamilyIndices);
 
+    void createSurface_();
+
     QueueFamilyIndices findQueueFamilies_();
 
 public:

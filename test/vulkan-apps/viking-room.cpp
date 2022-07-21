@@ -256,3 +256,7 @@ void vtest::VikingRoom::printGPUInfo() {
     vtrs::Logger::print("Device Type:", type);
     vtrs::Logger::print("API Version:", properties.apiVersion);
 }
+
+void vtest::VikingRoom::createSurface_() {
+
+}
