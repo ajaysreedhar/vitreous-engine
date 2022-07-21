@@ -17,7 +17,7 @@ public: // *** Public members *** //
      * A combination of error type and error kind can
      * determine the type and cause of an error.
      */
-    enum ErrorKinds : int {
+    enum ErrorKind : int {
         E_TYPE_VK_RESULT = 120
     };
 
@@ -28,7 +28,7 @@ public: // *** Public members *** //
      * @param kind Error kind from {@link ErrorKind} enum.
      * @param code The error code, defaults to 0.
      */
-    RuntimeError(std::string&, int, int);
+    RuntimeError(std::string&, ErrorKind, int);
 
     /**
      * Returns the error code.
