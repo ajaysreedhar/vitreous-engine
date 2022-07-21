@@ -28,7 +28,7 @@ public: // *** Public members *** //
      * @param kind Error kind from {@link ErrorKind} enum.
      * @param code The error code, defaults to 0.
      */
-    RuntimeError(std::string&, ErrorKind, int);
+    RuntimeError(const std::string&, ErrorKind, int);
 
     /**
      * Returns the error code.
