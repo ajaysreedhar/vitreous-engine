@@ -1,14 +1,11 @@
 #include <cstdlib>
 #include "engine/except/runtime-error.hpp"
-#include "engine/platform/logger.hpp"
 #include "xcb-window.hpp"
 
 vtest::WSIWindowEvent vtest::XCBWindow::wsiWindowEvent_(xcb_key_press_event_t* xcb_event) {
     WSIWindowEvent wsi_event {};
     wsi_event.kind = WSIWindowEvent::KEY_PRESS;
-    wsi_event.rootWindow = xcb_event->root;
     wsi_event.eventWindow = xcb_event->event;
-    wsi_event.childWindow = xcb_event->child;
     wsi_event.eventDetail = xcb_event->detail;
 
     return wsi_event;
@@ -17,9 +14,7 @@ vtest::WSIWindowEvent vtest::XCBWindow::wsiWindowEvent_(xcb_key_press_event_t* x
 vtest::WSIWindowEvent vtest::XCBWindow::wsiWindowEvent_(xcb_button_press_event_t* xcb_event) {
     WSIWindowEvent wsi_event {};
     wsi_event.kind = vtest::WSIWindowEvent::BUTTON_PRESS;
-    wsi_event.rootWindow = xcb_event->root;
     wsi_event.eventWindow = xcb_event->event;
-    wsi_event.childWindow = xcb_event->child;
 
     return wsi_event;
 }

@@ -4,6 +4,7 @@
 #include "xcb-window.hpp"
 
 int main() {
+    vtrs::Logger::info("Test: XCB Client");
 
     auto window = new vtest::XCBWindow();
     window->createWindow(800, 600);

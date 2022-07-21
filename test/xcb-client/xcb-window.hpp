@@ -16,9 +16,7 @@ struct wsi_window_event {
 
     unsigned int kind = NO_EVENT;
 
-    uint32_t rootWindow = -468;
     uint32_t eventWindow = -468;
-    uint32_t childWindow = -468;
     uint32_t eventDetail = -468;
 };
 
