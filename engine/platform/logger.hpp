@@ -1,6 +1,6 @@
 /**
- * logger.hpp - Vitreous Engine [platform]
- * ===------------------------------------------------------------------===
+ * logger.hpp - Vitreous Engine [engine-platform]
+ * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
  *
@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * ===------------------------------------------------------------------===
+ * ========================================================================
  */
 
 #pragma once
@@ -59,8 +59,6 @@ public:
         TRACE
     };
 
-    static void init();
-
     static void verboseOn();
     static void verboseOff();
 
@@ -76,13 +74,13 @@ public:
     }
 
     template<typename... T> static void warn(T&& ...messages) {
-        std::cerr << "[ WARN] ";
+        std::cerr << "[WARN ] ";
         (printUnpacked_(WARN, messages), ...);
         std::cerr << std::endl;
     }
 
     template<typename... T> static void info(T&& ...messages) {
-        std::cout << "[ INFO] ";
+        std::cout << "[INFO ] ";
         (printUnpacked_(INFO, messages), ...);
         std::cout << std::endl;
     }

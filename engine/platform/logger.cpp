@@ -1,6 +1,6 @@
 /**
- * logger.cpp - Vitreous Engine [platform]
- * ===------------------------------------------------------------------===
+ * logger.cpp - Vitreous Engine [engine-platform]
+ * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
  *
@@ -16,16 +16,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * ===------------------------------------------------------------------===
+ * ========================================================================
  */
 
 #include "platform/logger.hpp"
 
 bool vtrs::Logger::verbose = false;
-
-void vtrs::Logger::init() {
-    // TODO add initialiser
-}
 
 void::vtrs::Logger::verboseOn() {
     verbose = true;
