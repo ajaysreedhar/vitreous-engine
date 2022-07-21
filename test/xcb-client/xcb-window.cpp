@@ -1,7 +1,39 @@
+/**
+ * xcb-window.cpp - Vitreous Engine [test-xcb-client]
+ * ------------------------------------------------------------------------
+ *
+ * Copyright (c) 2022 Ajay Sreedhar
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ========================================================================
+ */
+
 #include <cstdlib>
 #include "engine/except/runtime-error.hpp"
 #include "xcb-window.hpp"
 
+/**
+ * Static utility function definitions.
+ *
+ * ========================================================================
+ */
+
+/**
+ * @brief Packs window event details from XCB key press event.
+ * @param xcb_event Instance of XCB key press event.
+ * @return window event details.
+ */
 vtest::WSIWindowEvent vtest::XCBWindow::wsiWindowEvent_(xcb_key_press_event_t* xcb_event) {
     WSIWindowEvent wsi_event {};
     wsi_event.kind = WSIWindowEvent::KEY_PRESS;
@@ -11,6 +43,11 @@ vtest::WSIWindowEvent vtest::XCBWindow::wsiWindowEvent_(xcb_key_press_event_t* x
     return wsi_event;
 }
 
+/**
+ * @brief Packs window event details from XCB button press event.
+ * @param xcb_event Instance of XCB key press event.
+ * @return window event details.
+ */
 vtest::WSIWindowEvent vtest::XCBWindow::wsiWindowEvent_(xcb_button_press_event_t* xcb_event) {
     WSIWindowEvent wsi_event {};
     wsi_event.kind = vtest::WSIWindowEvent::BUTTON_PRESS;
@@ -19,6 +56,11 @@ vtest::WSIWindowEvent vtest::XCBWindow::wsiWindowEvent_(xcb_button_press_event_t
     return wsi_event;
 }
 
+/**
+ * @brief Packs window event details from XCB message event.
+ * @param xcb_event Instance of XCB key press event.
+ * @return window event details.
+ */
 vtest::WSIWindowEvent vtest::XCBWindow::wsiWindowEvent_(xcb_client_message_event_t * xcb_event) {
     WSIWindowEvent wsi_event {};
 
@@ -36,6 +78,16 @@ vtest::WSIWindowEvent vtest::XCBWindow::wsiWindowEvent_(xcb_client_message_event
     return wsi_event;
 }
 
+/**
+ * Public member function definitions.
+ *
+ * ========================================================================
+ */
+
+/**
+ * @brief Initialises the instance.
+ * Connects to the display server and configures the screen.
+ */
 vtest::XCBWindow::XCBWindow() {
     m_WindowIds = new std::list<uint32_t>();
     m_connection = xcb_connect(nullptr, nullptr);
@@ -61,6 +113,11 @@ vtest::XCBWindow::XCBWindow() {
     m_windowReply  = xcb_intern_atom_reply(m_connection, window_cookie, nullptr);
 }
 
+/**
+ * @brief Creates a new window of specified dimensions.
+ * @param width Window width in pixels.
+ * @param height Window height in pixels.
+ */
 void vtest::XCBWindow::createWindow(int width, int height) {
     xcb_window_t window_id = xcb_generate_id(m_connection);
     uint32_t value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
@@ -85,6 +142,11 @@ void vtest::XCBWindow::createWindow(int width, int height) {
     m_WindowIds->push_back(window_id);
 }
 
+/**
+ * @brief Cleans up object is destroyed.
+ * This will destroy windows if not already destroyed
+ * and closes the connection.
+ */
 vtest::XCBWindow::~XCBWindow() {
     for(uint32_t& m_WindowId : *m_WindowIds) {
         xcb_destroy_window(m_connection, m_WindowId);
@@ -93,6 +155,12 @@ vtest::XCBWindow::~XCBWindow() {
     xcb_disconnect(m_connection);
 }
 
+/**
+ * @brief Polls window events.
+ * This function does not wait for events. If there are no pending events,
+ * a WSIWindowEvent object with empty event kind is returned.
+ * @return The WSIWindowEvent object.
+ */
 vtest::WSIWindowEvent vtest::XCBWindow::pollEvents() {
     xcb_generic_event_t* xcb_event = xcb_poll_for_event(m_connection);
     WSIWindowEvent wsi_event;
