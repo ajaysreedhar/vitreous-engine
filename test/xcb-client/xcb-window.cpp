@@ -118,7 +118,7 @@ vtest::XCBWindow::XCBWindow() {
  * @param width Window width in pixels.
  * @param height Window height in pixels.
  */
-void vtest::XCBWindow::createWindow(int width, int height) {
+uint32_t vtest::XCBWindow::createWindow(int width, int height) {
     xcb_window_t window_id = xcb_generate_id(m_connection);
     uint32_t value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
 
@@ -140,6 +140,8 @@ void vtest::XCBWindow::createWindow(int width, int height) {
     xcb_flush(m_connection);
 
     m_WindowIds->push_back(window_id);
+
+    return window_id;
 }
 
 /**
@@ -194,4 +196,8 @@ vtest::WSIWindowEvent vtest::XCBWindow::pollEvents() {
     }
 
     return wsi_event;
+}
+
+vtest::XCBConnection* vtest::XCBWindow::getConnection() {
+    return m_connection;
 }

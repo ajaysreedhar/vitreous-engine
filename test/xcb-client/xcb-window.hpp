@@ -26,6 +26,8 @@
 
 namespace vtest {
 
+typedef struct xcb_connection_t XCBConnection;
+
 struct wsi_window_event {
     enum EventKind: unsigned int {
         KEY_PRESS = 10,
@@ -77,8 +79,9 @@ private:
 public:
     XCBWindow();
     ~XCBWindow();
-    void createWindow(int, int);
+    uint32_t createWindow(int, int);
     WSIWindowEvent pollEvents();
+    XCBConnection* getConnection();
 };
 
 } // namespace vtest
