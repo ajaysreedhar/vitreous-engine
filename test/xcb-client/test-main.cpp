@@ -33,7 +33,7 @@ int main() {
     while (true) {
         auto event = window->pollEvents();
 
-        if (event.kind == vtest::WSIWindowEvent::NO_EVENT) {
+        if (event.kind == vtest::WSIWindowEvent::EMPTY_EVENT) {
             continue;
         }
 
