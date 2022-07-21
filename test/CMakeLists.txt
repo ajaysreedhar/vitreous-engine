@@ -11,8 +11,8 @@ target_link_libraries(vtest-xcb-client PRIVATE -lxcb vtrs-engine)
 
 # Executable: Viking Room
 add_executable(viking-room-test vulkan-apps/viking-room.cpp vulkan-apps/viking-room.hpp vulkan-apps/test-main.cpp)
-target_link_libraries(viking-room-test PUBLIC ${Vulkan_LIBRARIES} vtrs-engine)
-target_include_directories(viking-room-test PUBLIC ${Vulkan_INCLUDE_DIRS} xcb-client)
+target_link_libraries(viking-room-test PUBLIC ${Vulkan_LIBRARIES} vtrs-engine vtest-xcb-client)
+target_include_directories(viking-room-test PUBLIC ${Vulkan_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Test: Wayland Client
 add_library(vtest-wlclient SHARED
