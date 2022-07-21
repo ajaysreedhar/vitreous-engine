@@ -1,5 +1,5 @@
 /**
- * demo-app.cpp - Vitreous Engine [test-vulkan-demo]
+ * demo-app.cpp - Vitreous Engine [test-vulkan-apps]
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
@@ -107,9 +107,9 @@ void vtest::Application::initVulkan_() {
  * Initialises physical GPU.
  *
  * This method will select a suitable GPU from the list of available
- * GPUs based on their score and set the m_gpu member variable.
+ * GPUs based on their score and set the m_physicalGPU member variable.
  */
-void vtest::Application::initGPU_() {
+void vtest::Application::initPhysicalGPU_() {
     uint32_t gpu_count = 0;
 
     auto result = vkEnumeratePhysicalDevices(m_instance, &gpu_count, nullptr);
@@ -123,7 +123,7 @@ void vtest::Application::initGPU_() {
 
     std::multimap<unsigned int, VkPhysicalDevice> candidates;
 
-    for(VkPhysicalDevice gpu : gpu_list) {
+    for(VkPhysicalDevice& gpu : gpu_list) {
         unsigned int score = vtest::Application::findGPUScore_(gpu);
         candidates.insert(std::make_pair(score, gpu));
     }
@@ -134,7 +134,53 @@ void vtest::Application::initGPU_() {
         throw vtrs::RuntimeError("Unable to select a suitable GPU.", vtrs::RuntimeError::E_TYPE_GENERAL);
     }
 
-    m_gpu = selected->second;
+    m_physicalGPU = selected->second;
+}
+
+vtest::QueueFamilyIndices vtest::Application::findQueueFamilies_() {
+    uint32_t family_count = 0, family_index = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(m_physicalGPU, &family_count, nullptr);
+
+    std::vector<VkQueueFamilyProperties> family_list(family_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(m_physicalGPU, &family_count, family_list.data());
+
+    vtest::QueueFamilyIndices indices;
+
+    for (auto& family : family_list) {
+        if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            indices.graphicsFamily = family_index;
+        }
+
+        family_index++;
+    }
+
+    return indices;
+}
+
+void vtest::Application::initLogicalDevice_(vtest::QueueFamilyIndices indices) {
+    float queue_priority = 1.0f;
+
+    VkDeviceQueueCreateInfo queue_info {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = indices.graphicsFamily.value(),
+        .queueCount = 1,
+        .pQueuePriorities = &queue_priority
+    };
+
+    VkPhysicalDeviceFeatures deviceFeatures{};
+
+    VkDeviceCreateInfo device_info {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &queue_info,
+        .pEnabledFeatures = &deviceFeatures
+    };
+
+    auto result = vkCreateDevice(m_physicalGPU, &device_info, nullptr, &m_logicalDevice);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to create logical device.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
 }
 
 /**
@@ -148,15 +194,27 @@ void vtest::Application::initGPU_() {
  *
  * Vulkan instance and GPU are initialised here.
  */
-vtest::Application::Application() : m_instance{}, m_gpu(VK_NULL_HANDLE) {
-    this->initVulkan_();
-    this->initGPU_();
+vtest::Application::Application() :
+        m_instance{},
+        m_logicalDevice{},
+        m_physicalGPU(VK_NULL_HANDLE) {
+    initVulkan_();
+    initPhysicalGPU_();
+
+    vtest::QueueFamilyIndices indices = findQueueFamilies_();
+
+    if (!indices.graphicsFamily.has_value()) {
+        throw vtrs::RuntimeError("Unable to obtain required queue families.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    initLogicalDevice_(indices);
 }
 
 /**
  * Cleans up.
  */
 vtest::Application::~Application() {
+    vkDestroyDevice(m_logicalDevice, nullptr);
     vkDestroyInstance(m_instance, nullptr);
 }
 
@@ -165,7 +223,7 @@ vtest::Application::~Application() {
  */
 void vtest::Application::printGPUInfo() {
     VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(m_gpu, &properties);
+    vkGetPhysicalDeviceProperties(m_physicalGPU, &properties);
 
     const char* type;
 

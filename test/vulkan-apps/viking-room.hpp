@@ -1,5 +1,5 @@
 /**
- * demo-app.hpp - Vitreous Engine [test-vulkan-demo]
+ * demo-app.hpp - Vitreous Engine [test-vulkan-apps]
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
@@ -21,20 +21,28 @@
 
 #pragma once
 
+#include <optional>
 #include <vulkan/vulkan.h>
 
 namespace vtest {
 
+struct queue_family_indices {
+    std::optional<uint32_t> graphicsFamily;
+};
+
+typedef struct queue_family_indices QueueFamilyIndices;
+
 /**
- * Vulkan Demo Application.
+ * Vulkan Demo VikingRoom.
  *
  * @see [Vulkan Tutorial](https://vulkan-tutorial.com/Introduction)
  */
-class Application {
+class VikingRoom {
 
 private:
     VkInstance m_instance;
-    VkPhysicalDevice m_gpu;
+    VkPhysicalDevice m_physicalGPU;
+    VkDevice m_logicalDevice;
 
     /**
      * Finds the GPU usability score after evaluating device properties.
@@ -55,13 +63,17 @@ private:
      * Initialises physical GPU.
      *
      * This method will select a suitable GPU from the list of available
-     * GPUs based on their score and set the m_gpu member variable.
+     * GPUs based on their score and set the m_physicalGPU member variable.
      */
-    void initGPU_();
+    void initPhysicalGPU_();
+
+    void initLogicalDevice_(vtest::QueueFamilyIndices);
+
+    QueueFamilyIndices findQueueFamilies_();
 
 public:
-    Application();
-    ~Application();
+    VikingRoom();
+    ~VikingRoom();
 
     /**
      * Prints the properties of the selected GPU.

@@ -5,13 +5,13 @@ set(BASEPATH "${CMAKE_SOURCE_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/out/test")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/out/test")
 
-# Test: Vulkan Demo Application
-add_library(vtest-vkdemo SHARED vulkan-demo/application.cpp vulkan-demo/application.hpp)
-target_link_libraries(vtest-vkdemo PUBLIC ${Vulkan_LIBRARIES} vtrs-engine)
-target_include_directories(vtest-vkdemo PUBLIC ${Vulkan_INCLUDE_DIRS})
+# Test: Vulkan Apps VikingRoom
+add_library(vtest-viking SHARED vulkan-apps/viking-room.cpp vulkan-apps/viking-room.hpp)
+target_link_libraries(vtest-viking PUBLIC ${Vulkan_LIBRARIES} vtrs-engine)
+target_include_directories(vtest-viking PUBLIC ${Vulkan_INCLUDE_DIRS})
 
-add_executable(vkdemo-test vulkan-demo/test-main.cpp)
-target_link_libraries(vkdemo-test PUBLIC ${Vulkan_LIBRARIES} vtrs-engine vtest-vkdemo)
+add_executable(viking-test vulkan-apps/test-main.cpp)
+target_link_libraries(viking-test PUBLIC ${Vulkan_LIBRARIES} vtrs-engine vtest-viking)
 
 # Test: Wayland Client
 add_library(vtest-wlclient SHARED

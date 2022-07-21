@@ -1,5 +1,5 @@
 /**
- * test-main.cpp - Vitreous Engine [test-vulkan-demo]
+ * test-main.cpp - Vitreous Engine [test-vulkan-apps]
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
@@ -22,15 +22,15 @@
 #include <cstdlib>
 #include "engine/except/runtime-error.hpp"
 #include "engine/platform/logger.hpp"
-#include "application.hpp"
+#include "viking-room.hpp"
 
 int main() {
-    vtrs::Logger::info("Test: Vulkan Demo Application");
+    vtrs::Logger::info("Test: Vulkan Demo VikingRoom");
 
-    vtest::Application* application;
+    vtest::VikingRoom* application;
 
     try {
-        application = new vtest::Application();
+        application = new vtest::VikingRoom();
         application->printGPUInfo();
 
     } catch (vtrs::RuntimeError& error) {
