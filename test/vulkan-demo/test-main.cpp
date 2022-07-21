@@ -22,22 +22,22 @@
 #include <cstdlib>
 #include "engine/except/runtime-error.hpp"
 #include "engine/platform/logger.hpp"
-#include "demo-app.hpp"
+#include "application.hpp"
 
 int main() {
     vtrs::Logger::info("Test: Vulkan Demo Application");
 
-    vtest::VulkanDemoApp* demo_app;
+    vtest::Application* application;
 
     try {
-        demo_app = new vtest::VulkanDemoApp();
-        demo_app->printGPUInfo();
+        application = new vtest::Application();
+        application->printGPUInfo();
 
     } catch (vtrs::RuntimeError& error) {
         vtrs::Logger::fatal(error.what(), "Kind:", error.getKind(), ", Code:", error.getCode());
         return EXIT_FAILURE;
     }
 
-    delete demo_app;
+    delete application;
     return EXIT_SUCCESS;
 }

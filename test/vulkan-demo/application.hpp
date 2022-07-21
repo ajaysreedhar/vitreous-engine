@@ -30,7 +30,7 @@ namespace vtest {
  *
  * @see [Vulkan Tutorial](https://vulkan-tutorial.com/Introduction)
  */
-class VulkanDemoApp {
+class Application {
 
 private:
     VkInstance m_instance;
@@ -60,8 +60,8 @@ private:
     void initGPU_();
 
 public:
-    VulkanDemoApp();
-    ~VulkanDemoApp();
+    Application();
+    ~Application();
 
     /**
      * Prints the properties of the selected GPU.

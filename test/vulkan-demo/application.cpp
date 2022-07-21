@@ -23,7 +23,7 @@
 #include <map>
 #include "engine/except/runtime-error.hpp"
 #include "engine/platform/logger.hpp"
-#include "demo-app.hpp"
+#include "application.hpp"
 
 /**
  * Static utility function definitions.
@@ -37,7 +37,7 @@
  * @param device An instance of VkPhysicalDevice
  * @return The calculated score
  */
-unsigned int vtest::VulkanDemoApp::findGPUScore_(VkPhysicalDevice device) {
+unsigned int vtest::Application::findGPUScore_(VkPhysicalDevice device) {
     unsigned int score = 0;
 
     VkPhysicalDeviceProperties properties;
@@ -83,7 +83,7 @@ unsigned int vtest::VulkanDemoApp::findGPUScore_(VkPhysicalDevice device) {
  *
  * This method will set the m_instance member variable.
  */
-void vtest::VulkanDemoApp::initVulkan_() {
+void vtest::Application::initVulkan_() {
     VkApplicationInfo app_info {};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pApplicationName = "Vulkan Demo Application";
@@ -109,7 +109,7 @@ void vtest::VulkanDemoApp::initVulkan_() {
  * This method will select a suitable GPU from the list of available
  * GPUs based on their score and set the m_gpu member variable.
  */
-void vtest::VulkanDemoApp::initGPU_() {
+void vtest::Application::initGPU_() {
     uint32_t gpu_count = 0;
 
     auto result = vkEnumeratePhysicalDevices(m_instance, &gpu_count, nullptr);
@@ -124,7 +124,7 @@ void vtest::VulkanDemoApp::initGPU_() {
     std::multimap<unsigned int, VkPhysicalDevice> candidates;
 
     for(VkPhysicalDevice gpu : gpu_list) {
-        unsigned int score = vtest::VulkanDemoApp::findGPUScore_(gpu);
+        unsigned int score = vtest::Application::findGPUScore_(gpu);
         candidates.insert(std::make_pair(score, gpu));
     }
 
@@ -148,7 +148,7 @@ void vtest::VulkanDemoApp::initGPU_() {
  *
  * Vulkan instance and GPU are initialised here.
  */
-vtest::VulkanDemoApp::VulkanDemoApp() : m_instance{}, m_gpu(VK_NULL_HANDLE) {
+vtest::Application::Application() : m_instance{}, m_gpu(VK_NULL_HANDLE) {
     this->initVulkan_();
     this->initGPU_();
 }
@@ -156,14 +156,14 @@ vtest::VulkanDemoApp::VulkanDemoApp() : m_instance{}, m_gpu(VK_NULL_HANDLE) {
 /**
  * Cleans up.
  */
-vtest::VulkanDemoApp::~VulkanDemoApp() {
+vtest::Application::~Application() {
     vkDestroyInstance(m_instance, nullptr);
 }
 
 /**
  * Prints the properties of the selected GPU.
  */
-void vtest::VulkanDemoApp::printGPUInfo() {
+void vtest::Application::printGPUInfo() {
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(m_gpu, &properties);
 
