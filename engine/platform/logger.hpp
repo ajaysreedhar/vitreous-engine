@@ -47,8 +47,6 @@ private:
                 std::cout << message << " ";
                 break;
         }
-
-        std::cerr << std::endl;
     }
 
 public:
@@ -74,30 +72,36 @@ public:
     template<typename... T> static void error(T&& ...messages) {
         std::cerr << "[ERROR] ";
         (printUnpacked_(ERROR, messages), ...);
+        std::cerr << std::endl;
     }
 
     template<typename... T> static void warn(T&& ...messages) {
         std::cerr << "[WARN ] ";
         (printUnpacked_(WARN, messages), ...);
+        std::cerr << std::endl;
     }
 
     template<typename... T> static void info(T&& ...messages) {
         std::cout << "[INFO ] ";
         (printUnpacked_(INFO, messages), ...);
+        std::cout << std::endl;
     }
 
     template<typename... T> static void debug(T&& ...messages) {
         std::cout << "[DEBUG] ";
         (printUnpacked_(DEBUG, messages), ...);
+        std::cout << std::endl;
     }
 
     template<typename... T> static void trace(T&& ...messages) {
         std::cout << "[TRACE] ";
         (printUnpacked_(TRACE, messages), ...);
+        std::cout << std::endl;
     }
 
     template<typename... T> static void print(T&& ...messages) {
         (printUnpacked_(INFO, messages), ...);
+        std::cout << std::endl;
     }
 };
 
