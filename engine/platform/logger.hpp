@@ -29,76 +29,76 @@
 
 namespace vtrs {
 
-    class Logger {
+class Logger {
 
-    private:
-        static bool verbose;
+private:
+    static bool verbose;
 
-        template<typename T>
-        static void printUnpacked_(int level, T&& message) {
-            switch (level) {
-                case FATAL:
-                case ERROR:
-                case WARN:
-                    std::cerr << message << " ";
-                    break;
+    template<typename T>
+    static void printUnpacked_(int level, T&& message) {
+        switch (level) {
+            case FATAL:
+            case ERROR:
+            case WARN:
+                std::cerr << message << " ";
+                break;
 
-                default:
-                    std::cout << message << " ";
-                    break;
-            }
+            default:
+                std::cout << message << " ";
+                break;
         }
 
-    public:
-        enum LogLevel : int {
-            FATAL = 0,
-            ERROR,
-            WARN,
-            INFO,
-            DEBUG,
-            TRACE
-        };
+        std::cerr << std::endl;
+    }
 
-        static void init();
-
-        static void verboseOn();
-        static void verboseOff();
-
-        template<typename... T> static void fatal(T&& ...messages) {
-            std::cerr << "[FATAL] ";
-            (printUnpacked_(FATAL, messages), ...);
-            std::cerr << std::endl;
-        }
-
-        template<typename... T> static void error(T&& ...messages) {
-            std::cerr << "[ERROR] ";
-            (printUnpacked_(ERROR, messages), ...);
-            std::cerr << std::endl;
-        }
-
-        template<typename... T> static void warn(T&& ...messages) {
-            std::cerr << "[WARN ] ";
-            (printUnpacked_(WARN, messages), ...);
-            std::cerr << std::endl;
-        }
-
-        template<typename... T> static void info(T&& ...messages) {
-            std::cout << "[INFO ] ";
-            (printUnpacked_(INFO, messages), ...);
-            std::cout << std::endl;
-        }
-
-        template<typename... T> static void debug(T&& ...messages) {
-            std::cout << "[DEBUG] ";
-            (printUnpacked_(DEBUG, messages), ...);
-            std::cout << std::endl;
-        }
-
-        template<typename... T> static void trace(T&& ...messages) {
-            std::cout << "[TRACE] ";
-            (printUnpacked_(TRACE, messages), ...);
-            std::cout << std::endl;
-        }
+public:
+    enum LogLevel : int {
+        FATAL = 0,
+        ERROR,
+        WARN,
+        INFO,
+        DEBUG,
+        TRACE
     };
+
+    static void init();
+
+    static void verboseOn();
+    static void verboseOff();
+
+    template<typename... T> static void fatal(T&& ...messages) {
+        std::cerr << "[FATAL] ";
+        (printUnpacked_(FATAL, messages), ...);
+    }
+
+    template<typename... T> static void error(T&& ...messages) {
+        std::cerr << "[ERROR] ";
+        (printUnpacked_(ERROR, messages), ...);
+    }
+
+    template<typename... T> static void warn(T&& ...messages) {
+        std::cerr << "[WARN ] ";
+        (printUnpacked_(WARN, messages), ...);
+    }
+
+    template<typename... T> static void info(T&& ...messages) {
+        std::cout << "[INFO ] ";
+        (printUnpacked_(INFO, messages), ...);
+    }
+
+    template<typename... T> static void debug(T&& ...messages) {
+        std::cout << "[DEBUG] ";
+        (printUnpacked_(DEBUG, messages), ...);
+    }
+
+    template<typename... T> static void trace(T&& ...messages) {
+        std::cout << "[TRACE] ";
+        (printUnpacked_(TRACE, messages), ...);
+    }
+
+    template<typename... T> static void print(T&& ...messages) {
+        (printUnpacked_(INFO, messages), ...);
+    }
+};
 
 } // namespace vtrs
