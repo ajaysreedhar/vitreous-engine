@@ -23,7 +23,7 @@
 #include <map>
 #include "engine/except/runtime-error.hpp"
 #include "engine/platform/logger.hpp"
-#include "application.hpp"
+#include "viking-room.hpp"
 
 /**
  * Static utility function definitions.
@@ -37,7 +37,7 @@
  * @param device An instance of VkPhysicalDevice
  * @return The calculated score
  */
-unsigned int vtest::Application::findGPUScore_(VkPhysicalDevice device) {
+unsigned int vtest::VikingRoom::findGPUScore_(VkPhysicalDevice device) {
     unsigned int score = 0;
 
     VkPhysicalDeviceProperties properties;
@@ -83,10 +83,10 @@ unsigned int vtest::Application::findGPUScore_(VkPhysicalDevice device) {
  *
  * This method will set the m_instance member variable.
  */
-void vtest::Application::initVulkan_() {
+void vtest::VikingRoom::initVulkan_() {
     VkApplicationInfo app_info {};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app_info.pApplicationName = "Vulkan Demo Application";
+    app_info.pApplicationName = "Vulkan Demo VikingRoom";
     app_info.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
     app_info.pEngineName = "Vitreous Engine";
     app_info.engineVersion = VK_MAKE_VERSION(0, 1, 0);
@@ -109,7 +109,7 @@ void vtest::Application::initVulkan_() {
  * This method will select a suitable GPU from the list of available
  * GPUs based on their score and set the m_physicalGPU member variable.
  */
-void vtest::Application::initPhysicalGPU_() {
+void vtest::VikingRoom::initPhysicalGPU_() {
     uint32_t gpu_count = 0;
 
     auto result = vkEnumeratePhysicalDevices(m_instance, &gpu_count, nullptr);
@@ -124,7 +124,7 @@ void vtest::Application::initPhysicalGPU_() {
     std::multimap<unsigned int, VkPhysicalDevice> candidates;
 
     for(VkPhysicalDevice& gpu : gpu_list) {
-        unsigned int score = vtest::Application::findGPUScore_(gpu);
+        unsigned int score = vtest::VikingRoom::findGPUScore_(gpu);
         candidates.insert(std::make_pair(score, gpu));
     }
 
@@ -137,7 +137,7 @@ void vtest::Application::initPhysicalGPU_() {
     m_physicalGPU = selected->second;
 }
 
-vtest::QueueFamilyIndices vtest::Application::findQueueFamilies_() {
+vtest::QueueFamilyIndices vtest::VikingRoom::findQueueFamilies_() {
     uint32_t family_count = 0, family_index = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(m_physicalGPU, &family_count, nullptr);
 
@@ -157,7 +157,7 @@ vtest::QueueFamilyIndices vtest::Application::findQueueFamilies_() {
     return indices;
 }
 
-void vtest::Application::initLogicalDevice_(vtest::QueueFamilyIndices indices) {
+void vtest::VikingRoom::initLogicalDevice_(vtest::QueueFamilyIndices indices) {
     float queue_priority = 1.0f;
 
     VkDeviceQueueCreateInfo queue_info {
@@ -194,7 +194,7 @@ void vtest::Application::initLogicalDevice_(vtest::QueueFamilyIndices indices) {
  *
  * Vulkan instance and GPU are initialised here.
  */
-vtest::Application::Application() :
+vtest::VikingRoom::VikingRoom() :
         m_instance{},
         m_logicalDevice{},
         m_physicalGPU(VK_NULL_HANDLE) {
@@ -213,7 +213,7 @@ vtest::Application::Application() :
 /**
  * Cleans up.
  */
-vtest::Application::~Application() {
+vtest::VikingRoom::~VikingRoom() {
     vkDestroyDevice(m_logicalDevice, nullptr);
     vkDestroyInstance(m_instance, nullptr);
 }
@@ -221,7 +221,7 @@ vtest::Application::~Application() {
 /**
  * Prints the properties of the selected GPU.
  */
-void vtest::Application::printGPUInfo() {
+void vtest::VikingRoom::printGPUInfo() {
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(m_physicalGPU, &properties);
 
