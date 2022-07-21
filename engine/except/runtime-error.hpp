@@ -30,6 +30,7 @@ public: // *** Public members *** //
      * @param code The error code, defaults to 0.
      */
     RuntimeError(const std::string&, ErrorKind, int);
+    RuntimeError(const std::string&, ErrorKind);
 
     /**
      * Returns the error code.
