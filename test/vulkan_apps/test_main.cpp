@@ -22,7 +22,7 @@
 #include <cstdlib>
 #include "engine/except/error.hpp"
 #include "engine/platform/logger.hpp"
-#include "xcb-client/xcb-window.hpp"
+#include "xcb_client/xcb_window.hpp"
 #include "viking_room.hpp"
 
 int main() {

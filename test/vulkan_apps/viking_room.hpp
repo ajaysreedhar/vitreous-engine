@@ -25,7 +25,7 @@
 #include <vector>
 #include <optional>
 #include <vulkan/vulkan.h>
-#include "xcb-client/xcb-window.hpp"
+#include "xcb_client/xcb_window.hpp"
 
 namespace vtest {
 
