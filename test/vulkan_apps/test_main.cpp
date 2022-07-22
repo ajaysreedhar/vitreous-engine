@@ -21,11 +21,18 @@
 
 #include <cstdlib>
 #include "engine/except/error.hpp"
+#include "engine/platform/standard.hpp"
 #include "engine/platform/logger.hpp"
 #include "xcb_client/xcb_window.hpp"
 #include "viking_room.hpp"
 
 int main() {
+
+#if !defined(VTRS_OS_TYPE_LINUX) && !defined(VTRS_OS_TYPE_WINDOWS)
+    vtrs::Logger::fatal("Test runs only on Windows and Linux.");
+    return EXIT_FAILURE;
+#endif
+
     vtrs::Logger::info("Test: Vulkan Demo VikingRoom");
 
     vtest::XCBWindow* xcb_window;
