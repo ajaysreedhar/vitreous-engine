@@ -1,5 +1,5 @@
 /**
- * viking-room.hpp - Vitreous Engine [test-vulkan_apps]
+ * viking-room.hpp - Vitreous Engine [test-vulkan-apps]
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar

@@ -1,5 +1,5 @@
 /**
- * test-main.cpp - Vitreous Engine [test-vulkan_apps]
+ * test-main.cpp - Vitreous Engine [test-vulkan-apps]
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
