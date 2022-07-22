@@ -20,7 +20,7 @@
  */
 
 #ifndef VTRS_PLATFORM_STANDARD_H
-#define VTRS_PLATFORM_STANDARD_H
+#define VTRS_PLATFORM_STANDARD_H 1
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
 #ifndef _WIN64
@@ -35,4 +35,4 @@
 #error "Vitreous engine compiles only on Windows and Linux!"
 #endif // defined(WIN32) || defined(__linux__)
 
-#endif // ifndef VTRS_PLATFORM_STANDARD_H
+#endif // VTRS_PLATFORM_STANDARD_H

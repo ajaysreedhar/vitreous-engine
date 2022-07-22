@@ -25,8 +25,6 @@
 #include <string>
 #include <initializer_list>
 
-
-
 namespace vtrs {
 
 class Logger {
