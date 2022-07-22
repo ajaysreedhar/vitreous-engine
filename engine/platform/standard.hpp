@@ -26,10 +26,10 @@
 #ifndef _WIN64
 #error "Vitreous needs 64-bit Windows to compile!"
 #endif // ifndef _WIN64
-#define VTRS_COMPILE_ON_WINDOWS 1
+#define VTRS_OS_TYPE_WINDOWS 1
 
 #elif defined(__linux__) || defined(__gnu_linux__)
-#define VTRS_COMPILE_ON_LINUX 1
+#define VTRS_OS_TYPE_LINUX 1
 
 #else
 #error "Vitreous engine compiles only on Windows and Linux!"
