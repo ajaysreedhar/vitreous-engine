@@ -3,7 +3,7 @@
 
 #include <wayland-client.h>
 #include "engine/platform/logger.hpp"
-#include "wl-client.hpp"
+#include "wl_client.hpp"
 
 void xdg_surface_configure_handler
         (

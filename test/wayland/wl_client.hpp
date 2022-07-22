@@ -2,7 +2,7 @@
 
 #include <cstring>
 #include <wayland-client.h>
-#include "xdg-shell.h"
+#include "xdg_shell.h"
 
 namespace vtest {
 typedef struct wl_surface WLSurface;

@@ -3,8 +3,8 @@
 #include <sys/mman.h>
 #include <stdexcept>
 #include "engine/platform/logger.hpp"
-#include "xdg-shell.h"
-#include "wl-client.hpp"
+#include "xdg_shell.h"
+#include "wl_client.hpp"
 
 struct wl_display* vtest::WLClient::s_display = nullptr;
 struct wl_registry* vtest::WLClient::s_registry = nullptr;

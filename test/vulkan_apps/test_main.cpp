@@ -1,5 +1,5 @@
 /**
- * test-main.cpp - Vitreous Engine [test-vulkan-apps]
+ * test-main.cpp - Vitreous Engine [test-vulkan_apps]
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
@@ -20,10 +20,10 @@
  */
 
 #include <cstdlib>
-#include "engine/except/runtime-error.hpp"
+#include "engine/except/error.hpp"
 #include "engine/platform/logger.hpp"
 #include "xcb-client/xcb-window.hpp"
-#include "viking-room.hpp"
+#include "viking_room.hpp"
 
 int main() {
     vtrs::Logger::info("Test: Vulkan Demo VikingRoom");

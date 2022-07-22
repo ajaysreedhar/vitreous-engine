@@ -1,5 +1,5 @@
 /**
- * viking-room.cpp - Vitreous Engine [test-vulkan-apps]
+ * viking-room.cpp - Vitreous Engine [test-vulkan_apps]
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
@@ -22,9 +22,9 @@
 #include <vector>
 #include <map>
 #include <set>
-#include "engine/except/runtime-error.hpp"
+#include "engine/except/error.hpp"
 #include "engine/platform/logger.hpp"
-#include "viking-room.hpp"
+#include "viking_room.hpp"
 
 bool vtest::VikingRoom::s_isInitialised = false;
 std::vector<std::string> vtest::VikingRoom::s_iExtensions{};

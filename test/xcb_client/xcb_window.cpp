@@ -20,8 +20,8 @@
  */
 
 #include <cstdlib>
-#include "engine/except/runtime-error.hpp"
-#include "xcb-window.hpp"
+#include "engine/except/error.hpp"
+#include "xcb_window.hpp"
 
 /**
  * Static utility function definitions.

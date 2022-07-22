@@ -22,7 +22,7 @@
 #include <cstdlib>
 
 #include "engine/platform/logger.hpp"
-#include "xcb-window.hpp"
+#include "xcb_window.hpp"
 
 int main() {
     vtrs::Logger::info("Test: XCB Client");
