@@ -1,5 +1,5 @@
 /**
- * demo-app.cpp - Vitreous Engine [test-vulkan-apps]
+ * viking-room.cpp - Vitreous Engine [test-vulkan-apps]
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
@@ -21,9 +21,13 @@
 
 #include <vector>
 #include <map>
+#include <set>
 #include "engine/except/runtime-error.hpp"
 #include "engine/platform/logger.hpp"
 #include "viking-room.hpp"
+
+bool vtest::VikingRoom::s_isInitialised = false;
+std::vector<std::string> vtest::VikingRoom::s_iExtensions{};
 
 /**
  * Static utility function definitions.
@@ -72,18 +76,40 @@ unsigned int vtest::VikingRoom::findGPUScore_(VkPhysicalDevice device) {
     return score;
 }
 
+void vtest::VikingRoom::enumerateExtensions_() {
+    uint32_t count = 0;
+    auto result = vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Failed to query instance extensions.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+
+    s_iExtensions.reserve(count);
+
+    std::vector<VkExtensionProperties> extensions(count);
+    vkEnumerateInstanceExtensionProperties(nullptr, &count, extensions.data());
+
+    for (auto& item : extensions) {
+        s_iExtensions.emplace_back(item.extensionName);
+    }
+}
+
 /**
  * Private member function definitions.
  *
  * ========================================================================
  */
+void vtest::VikingRoom::abortBootstrap_() {
+    vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+    vkDestroyInstance(m_instance, nullptr);
+}
 
 /**
  * Initialises Vulkan instance.
  *
  * This method will set the m_instance member variable.
  */
-void vtest::VikingRoom::initVulkan_() {
+void vtest::VikingRoom::initVulkan_(std::vector<const char*>& extensions) {
     VkApplicationInfo app_info {};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pApplicationName = "Vulkan Demo VikingRoom";
@@ -92,14 +118,17 @@ void vtest::VikingRoom::initVulkan_() {
     app_info.engineVersion = VK_MAKE_VERSION(0, 1, 0);
     app_info.apiVersion = VK_API_VERSION_1_3;
 
-    std::vector<const char*> extensions;
-    extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+    std::vector<const char*> validation_layers({
+        "VK_LAYER_KHRONOS_validation"
+    });
 
     VkInstanceCreateInfo create_info {};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &app_info;
-    create_info.enabledExtensionCount = 1;
+    create_info.enabledExtensionCount = extensions.size();
     create_info.ppEnabledExtensionNames = extensions.data();
+    create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
+    create_info.ppEnabledLayerNames = validation_layers.data();
 
     auto result = vkCreateInstance(&create_info, nullptr, &m_instance);
 
@@ -108,18 +137,32 @@ void vtest::VikingRoom::initVulkan_() {
     }
 }
 
+void vtest::VikingRoom::enumerateGPUExtensions_(VkPhysicalDevice device) {
+    uint32_t count;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr);
+
+    std::vector<VkExtensionProperties> extensions(count);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, extensions.data());
+
+    for (const auto& extension : extensions) {
+        m_gExtensions.emplace_back(std::string(extension.extensionName));
+    }
+}
+
+
 /**
  * Initialises physical GPU.
  *
  * This method will select a suitable GPU from the list of available
- * GPUs based on their score and set the m_physicalGPU member variable.
+ * GPUs based on their score and set the m_gpu member variable.
  */
-void vtest::VikingRoom::initPhysicalGPU_() {
+void vtest::VikingRoom::initGPU_() {
     uint32_t gpu_count = 0;
 
     auto result = vkEnumeratePhysicalDevices(m_instance, &gpu_count, nullptr);
 
     if (result != VK_SUCCESS || gpu_count == 0) {
+        vkDestroyInstance(m_instance, nullptr);
         throw vtrs::RuntimeError("Unable to find any GPUs with Vulkan support.", vtrs::RuntimeError::E_TYPE_GENERAL);
     }
 
@@ -136,24 +179,37 @@ void vtest::VikingRoom::initPhysicalGPU_() {
     std::reverse_iterator selected = candidates.rbegin();
 
     if (selected->first == 0) {
+        vkDestroyInstance(m_instance, nullptr);
         throw vtrs::RuntimeError("Unable to select a suitable GPU.", vtrs::RuntimeError::E_TYPE_GENERAL);
     }
 
-    m_physicalGPU = selected->second;
+    this->enumerateGPUExtensions_(selected->second);
+    m_gpu = selected->second;
 }
 
 vtest::QueueFamilyIndices vtest::VikingRoom::findQueueFamilies_() {
     uint32_t family_count = 0, family_index = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(m_physicalGPU, &family_count, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, &family_count, nullptr);
 
     std::vector<VkQueueFamilyProperties> family_list(family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(m_physicalGPU, &family_count, family_list.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, &family_count, family_list.data());
 
+    VkBool32 surfaceSupport;
     vtest::QueueFamilyIndices indices;
 
     for (auto& family : family_list) {
+        vkGetPhysicalDeviceSurfaceSupportKHR(m_gpu, family_index, m_surface, &surfaceSupport);
+
+        if (surfaceSupport >= 1){
+            indices.surfaceIndex = family_index;
+        }
+
         if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            indices.graphicsFamily = family_index;
+            indices.graphicsIndex = family_index;
+        }
+
+        if (indices.graphicsIndex.has_value() && indices.surfaceIndex.has_value()) {
+            break;
         }
 
         family_index++;
@@ -162,33 +218,61 @@ vtest::QueueFamilyIndices vtest::VikingRoom::findQueueFamilies_() {
     return indices;
 }
 
-void vtest::VikingRoom::initLogicalDevice_(vtest::QueueFamilyIndices indices) {
+void vtest::VikingRoom::initDevice_(vtest::QueueFamilyIndices indices) {
     float queue_priority = 1.0f;
 
-    VkDeviceQueueCreateInfo queue_info {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = indices.graphicsFamily.value(),
-        .queueCount = 1,
-        .pQueuePriorities = &queue_priority
-    };
+    std::vector<VkDeviceQueueCreateInfo> queue_infos;
+    std::set<uint32_t> index_set = {indices.graphicsIndex.value(), indices.surfaceIndex.value()};
+
+    for(uint32_t index : index_set) {
+        VkDeviceQueueCreateInfo create_info {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = index,
+            .queueCount = 1,
+            .pQueuePriorities = &queue_priority
+        };
+
+        queue_infos.push_back(create_info);
+    }
 
     VkPhysicalDeviceFeatures deviceFeatures{};
 
+    std::vector<const char*> extensions({
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    });
+
     VkDeviceCreateInfo device_info {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &queue_info,
-        .pEnabledFeatures = &deviceFeatures
+        .queueCreateInfoCount = static_cast<uint32_t>(queue_infos.size()),
+        .pQueueCreateInfos = queue_infos.data(),
+        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data(),
+        .pEnabledFeatures = &deviceFeatures,
     };
 
-    auto result = vkCreateDevice(m_physicalGPU, &device_info, nullptr, &m_logicalDevice);
+    auto result = vkCreateDevice(m_gpu, &device_info, nullptr, &m_device);
 
     if (result != VK_SUCCESS) {
+        abortBootstrap_();
         throw vtrs::RuntimeError("Unable to create logical device.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
     }
+
+    vkGetDeviceQueue(m_device, indices.graphicsIndex.value(), 0, &(m_queues.graphicsQueue));
+    vkGetDeviceQueue(m_device, indices.surfaceIndex.value(), 0, &(m_queues.surfaceQueue));
 }
 
-void vtest::VikingRoom::createSurface_(vtest::XCBConnection* connection, uint32_t window) {
+void vtest::VikingRoom::bootstrap_() {
+    vtest::QueueFamilyIndices indices = findQueueFamilies_();
+
+    if (!indices.graphicsIndex.has_value() || !indices.surfaceIndex.has_value()) {
+        abortBootstrap_();
+        throw vtrs::RuntimeError("Unable to obtain required queue families.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    initDevice_(indices);
+}
+
+void vtest::VikingRoom::prepareSurface_(vtest::XCBConnection* connection, uint32_t window) {
     VkXcbSurfaceCreateInfoKHR surface_info {};
     surface_info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
     surface_info.connection = connection;
@@ -197,8 +281,24 @@ void vtest::VikingRoom::createSurface_(vtest::XCBConnection* connection, uint32_
     auto result = vkCreateXcbSurfaceKHR(m_instance, &surface_info, nullptr, &this->m_surface);
 
     if (result != VK_SUCCESS) {
+        vkDestroyInstance(m_instance, nullptr);
         throw vtrs::RuntimeError("Unable to create XCB surface.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
     }
+}
+
+/**
+ * Initialises the instance.
+ *
+ * Vulkan instance and GPU are initialised here.
+ */
+vtest::VikingRoom::VikingRoom(std::vector<const char*>& extensions) :
+        m_instance{},
+        m_device{},
+        m_surface{},
+        m_queues{},
+        m_gpu(VK_NULL_HANDLE) {
+    initVulkan_(extensions);
+    initGPU_();
 }
 
 /**
@@ -207,38 +307,30 @@ void vtest::VikingRoom::createSurface_(vtest::XCBConnection* connection, uint32_
  * ========================================================================
  */
 
-/**
- * Initialises the instance.
- *
- * Vulkan instance and GPU are initialised here.
- */
-vtest::VikingRoom::VikingRoom() :
-        m_instance{},
-        m_logicalDevice{},
-        m_surface{},
-        m_physicalGPU(VK_NULL_HANDLE) {
-    initVulkan_();
-    initPhysicalGPU_();
-
-    vtest::QueueFamilyIndices indices = findQueueFamilies_();
-
-    if (!indices.graphicsFamily.has_value()) {
-        throw vtrs::RuntimeError("Unable to obtain required queue families.", vtrs::RuntimeError::E_TYPE_GENERAL);
+vtest::VikingRoom *vtest::VikingRoom::factory(vtest::XCBConnection* connection, uint32_t window) {
+    if (!s_isInitialised) {
+        enumerateExtensions_();
+        s_isInitialised = true;
     }
 
-    initLogicalDevice_(indices);
-}
+    std::vector<const char*> extensions({
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        VK_KHR_XCB_SURFACE_EXTENSION_NAME
+    });
 
-vtest::VikingRoom::VikingRoom(vtest::XCBConnection* connection, uint32_t window): VikingRoom() {
-    createSurface_(connection, window);
+    auto instance = new VikingRoom(extensions);
+    instance->prepareSurface_(connection, window);
+    instance->bootstrap_();
+
+    return instance;
 }
 
 /**
  * Cleans up.
  */
 vtest::VikingRoom::~VikingRoom() {
+    vkDestroyDevice(m_device, nullptr);
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
-    vkDestroyDevice(m_logicalDevice, nullptr);
     vkDestroyInstance(m_instance, nullptr);
 }
 
@@ -247,7 +339,7 @@ vtest::VikingRoom::~VikingRoom() {
  */
 void vtest::VikingRoom::printGPUInfo() {
     VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(m_physicalGPU, &properties);
+    vkGetPhysicalDeviceProperties(m_gpu, &properties);
 
     const char* type;
 
@@ -279,4 +371,27 @@ void vtest::VikingRoom::printGPUInfo() {
     vtrs::Logger::print("Device Name:", properties.deviceName);
     vtrs::Logger::print("Device Type:", type);
     vtrs::Logger::print("API Version:", properties.apiVersion);
+    vtrs::Logger::print("");
+}
+
+void vtest::VikingRoom::printIExtensions() {
+    vtrs::Logger::print("Available Instance Extensions");
+    vtrs::Logger::print("************************");
+
+    for (auto& name : s_iExtensions) {
+        vtrs::Logger::print(name);
+    }
+
+    vtrs::Logger::print("");
+}
+
+void vtest::VikingRoom::printGPUExtensions() {
+    vtrs::Logger::print("Available GPU Extensions");
+    vtrs::Logger::print("************************");
+
+    for (auto& name : m_gExtensions) {
+        vtrs::Logger::print(name);
+    }
+
+    vtrs::Logger::print("");
 }

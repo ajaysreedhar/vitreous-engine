@@ -1,5 +1,5 @@
 /**
- * demo-app.hpp - Vitreous Engine [test-vulkan-apps]
+ * viking-room.hpp - Vitreous Engine [test-vulkan-apps]
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2022 Ajay Sreedhar
@@ -22,6 +22,7 @@
 #pragma once
 #define VK_USE_PLATFORM_XCB_KHR true
 
+#include <vector>
 #include <optional>
 #include <vulkan/vulkan.h>
 #include "xcb-client/xcb-window.hpp"
@@ -29,10 +30,18 @@
 namespace vtest {
 
 struct queue_family_indices {
-    std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> graphicsIndex;
+    std::optional<uint32_t> surfaceIndex;
 };
 
 typedef struct queue_family_indices QueueFamilyIndices;
+
+struct queue_wrapper {
+    VkQueue surfaceQueue;
+    VkQueue graphicsQueue;
+};
+
+typedef struct queue_wrapper QueueWrapper;
 
 /**
  * Vulkan Demo VikingRoom.
@@ -42,10 +51,24 @@ typedef struct queue_family_indices QueueFamilyIndices;
 class VikingRoom {
 
 private:
+    static bool s_isInitialised;
+
+    /**
+     * @brief Holds supported instance extensions.
+     */
+    static std::vector<std::string> s_iExtensions;
+
+    /**
+     * @brief Holds supported GPU device extensions.
+     */
+    std::vector<std::string> m_gExtensions;
+
     VkInstance m_instance;
-    VkPhysicalDevice m_physicalGPU;
-    VkDevice m_logicalDevice;
+    VkPhysicalDevice m_gpu;
+    VkDevice m_device;
     VkSurfaceKHR m_surface;
+
+    QueueWrapper m_queues;
 
     /**
      * Finds the GPU usability score after evaluating device properties.
@@ -55,35 +78,49 @@ private:
      */
     static unsigned int findGPUScore_(VkPhysicalDevice device);
 
+    static void enumerateExtensions_();
+
+    void abortBootstrap_();
+
+    void enumerateGPUExtensions_(VkPhysicalDevice);
+
     /**
      * Initialises Vulkan instance.
      *
      * This method will set the m_instance member variable.
      */
-    void initVulkan_();
+    void initVulkan_(std::vector<const char*>&);
 
     /**
      * Initialises physical GPU.
      *
      * This method will select a suitable GPU from the list of available
-     * GPUs based on their score and set the m_physicalGPU member variable.
+     * GPUs based on their score and set the m_gpu member variable.
      */
-    void initPhysicalGPU_();
+    void initGPU_();
 
-    void initLogicalDevice_(vtest::QueueFamilyIndices);
+    void initDevice_(vtest::QueueFamilyIndices);
 
     QueueFamilyIndices findQueueFamilies_();
-    void createSurface_(vtest::XCBConnection*, uint32_t);
+
+    void prepareSurface_(vtest::XCBConnection*, uint32_t);
+
+    void bootstrap_();
+
+    explicit VikingRoom(std::vector<const char*>&);
 
 public:
-    VikingRoom();
-    VikingRoom(vtest::XCBConnection*, uint32_t);
+    static VikingRoom* factory(vtest::XCBConnection*, uint32_t);
+    static void printIExtensions();
+
     ~VikingRoom();
 
     /**
      * Prints the properties of the selected GPU.
      */
     void printGPUInfo();
+
+    void printGPUExtensions();
 };
 
 } // namespace vtest

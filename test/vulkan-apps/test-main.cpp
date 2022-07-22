@@ -28,24 +28,29 @@
 int main() {
     vtrs::Logger::info("Test: Vulkan Demo VikingRoom");
 
-    vtest::XCBWindow* window;
+    vtest::XCBWindow* xcb_window;
     vtest::VikingRoom* application;
-    uint32_t w_id;
+    uint32_t window_id;
 
     try {
-        window = new vtest::XCBWindow();
-        w_id = window->createWindow(800, 600);
+        xcb_window = new vtest::XCBWindow();
+        window_id = xcb_window->createWindow(800, 600);
 
-        application = new vtest::VikingRoom(window->getConnection(), w_id);
+        application = vtest::VikingRoom::factory(xcb_window->getConnection(), window_id);
         application->printGPUInfo();
+        application->printGPUExtensions();
 
     } catch (vtrs::RuntimeError& error) {
         vtrs::Logger::fatal(error.what(), "Kind:", error.getKind(), ", Code:", error.getCode());
+
+        delete xcb_window;
         return EXIT_FAILURE;
     }
 
+    vtest::VikingRoom::printIExtensions();
+
     while (true) {
-        auto event = window->pollEvents();
+        auto event = xcb_window->pollEvents();
 
         if (event.kind == vtest::WSIWindowEvent::KEY_PRESS && event.eventDetail == 24) {
             break;
@@ -53,7 +58,7 @@ int main() {
     }
 
     delete application;
-    delete window;
+    delete xcb_window;
 
     return EXIT_SUCCESS;
 }
