@@ -19,7 +19,7 @@
  * ========================================================================
  */
 
-#include "runtime-error.hpp"
+#include "error.hpp"
 
 /**
  * Defines a runtime exception.
