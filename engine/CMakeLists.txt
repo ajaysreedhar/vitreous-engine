@@ -3,7 +3,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/out")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/out/lib")
 
 add_library(vtrs-engine SHARED
-        except/runtime-error.cpp except/runtime-error.hpp
+        except/error.cpp except/error.hpp
 
         platform/standard.hpp
         platform/logger.cpp platform/logger.hpp
