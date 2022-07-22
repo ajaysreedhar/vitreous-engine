@@ -65,6 +65,7 @@ public:
     template<typename... T> static void fatal(T&& ...messages) {
         std::cerr << "[FATAL] ";
         (printUnpacked_(FATAL, messages), ...);
+        std::cerr << std::endl;
     }
 
     template<typename... T> static void error(T&& ...messages) {
