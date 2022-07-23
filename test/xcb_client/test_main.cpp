@@ -2,7 +2,7 @@
  * test-main.cpp - Vitreous Engine [test-xcb-client]
  * ------------------------------------------------------------------------
  *
- * Copyright (c) 2022 Ajay Sreedhar
+ * Copyright (c) 2021-present Ajay Sreedhar
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,27 +22,27 @@
 #include <cstdlib>
 
 #include "engine/platform/logger.hpp"
-#include "xcb_window.hpp"
+#include "engine/platform/xcb_client.hpp"
 
 int main() {
     vtrs::Logger::info("Test: XCB Client");
 
-    auto window = new vtest::XCBWindow();
-    window->createWindow(800, 600);
+    auto client = new vtrs::XCBClient();
+    client->createWindow(800, 600);
 
     while (true) {
-        auto event = window->pollEvents();
+        auto event = client->pollEvents();
 
-        if (event.kind == vtest::WSIWindowEvent::EMPTY_EVENT) {
+        if (event.kind == vtrs::WSIWindowEvent::EMPTY_EVENT) {
             continue;
         }
 
-        if (event.kind == vtest::WSIWindowEvent::KEY_PRESS) {
+        if (event.kind == vtrs::WSIWindowEvent::KEY_PRESS) {
             if (event.eventDetail == 24) break;
-            else if (event.eventDetail == 57) window->createWindow(450, 300);
+            else if (event.eventDetail == 57) client->createWindow(450, 300);
         }
     }
 
-    delete window;
+    delete client;
     return EXIT_SUCCESS;
 }
