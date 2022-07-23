@@ -1,8 +1,8 @@
 /**
- * runtime-error.hpp - Vitreous Engine [engine-except]
+ * runtime.hpp - * runtime.cpp - Throwable runtime error
  * ------------------------------------------------------------------------
  *
- * Copyright (c) 2022 Ajay Sreedhar
+ * Copyright (c) 2021-present Ajay Sreedhar
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,8 +42,7 @@ public: // *** Public members *** //
      */
     enum ErrorKind : int {
         E_TYPE_GENERAL = 120,
-        E_TYPE_VK_RESULT,
-        E_TYPE_XCB_CLIENT
+        E_TYPE_VK_RESULT
     };
 
     /**
@@ -53,8 +52,8 @@ public: // *** Public members *** //
      * @param kind Error kind from {@link ErrorKind} enum.
      * @param code The error code, defaults to 0.
      */
-    RuntimeError(const std::string&, ErrorKind, int);
-    RuntimeError(const std::string&, ErrorKind);
+    RuntimeError(const std::string&, int, int);
+    RuntimeError(const std::string&, int);
 
     /**
      * Returns the error code.

@@ -1,8 +1,8 @@
 /**
- * runtime-error.cpp - Vitreous Engine [engine-except]
+ * runtime.cpp - Throwable runtime error
  * ------------------------------------------------------------------------
  *
- * Copyright (c) 2022 Ajay Sreedhar
+ * Copyright (c) 2021-present Ajay Sreedhar
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
  * ========================================================================
  */
 
-#include "error.hpp"
+#include "runtime.hpp"
 
 /**
  * Defines a runtime exception.
@@ -28,19 +28,12 @@
  * @param kind Error kind from {@link ErrorKind} enum.
  * @param code The error code, defaults to 0.
  */
-vtrs::RuntimeError::RuntimeError(
-    const std::string& message,
-    vtrs::RuntimeError::ErrorKind kind,
-    int code = 0
-) : std::runtime_error(message) {
+vtrs::RuntimeError::RuntimeError(const std::string& message, int kind, int code = 0) : std::runtime_error(message) {
     this->m_code = code;
     this->m_kind = kind;
 }
 
-vtrs::RuntimeError::RuntimeError(
-    const std::string& message,
-    vtrs::RuntimeError::ErrorKind kind
-): RuntimeError(message, kind, 0) {}
+vtrs::RuntimeError::RuntimeError(const std::string& message, int kind): RuntimeError(message, kind, 0) {}
 
 /**
  * Returns the error code.
