@@ -35,14 +35,20 @@ struct queue_family_indices {
     std::optional<uint32_t> surfaceIndex;
 };
 
-typedef struct queue_family_indices QueueFamilyIndices;
-
 struct queue_wrapper {
     VkQueue surfaceQueue;
     VkQueue graphicsQueue;
 };
 
+struct swapchain_support {
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> surfaceFormats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
+
+typedef struct queue_family_indices QueueFamilyIndices;
 typedef struct queue_wrapper QueueWrapper;
+typedef struct swapchain_support SwapchainSupport;
 
 /**
  * Vulkan Demo VikingRoom.
@@ -64,10 +70,13 @@ private:
      */
     std::vector<std::string> m_gExtensions;
 
+    std::vector<VkImage> m_swapImages;
+
     VkInstance m_instance;
     VkPhysicalDevice m_gpu;
     VkDevice m_device;
     VkSurfaceKHR m_surface;
+    VkSwapchainKHR m_swapchain;
 
     QueueWrapper m_queues;
 
@@ -101,6 +110,10 @@ private:
     void initGPU_();
 
     void initDevice_(vtest::QueueFamilyIndices);
+
+    SwapchainSupport querySwapchainCapabilities_();
+
+    void createSwapchain_(QueueFamilyIndices);
 
     QueueFamilyIndices findQueueFamilies_();
 

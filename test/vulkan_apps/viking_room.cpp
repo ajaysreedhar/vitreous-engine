@@ -22,6 +22,8 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <limits>
+#include <algorithm>
 #include "except/runtime.hpp"
 #include "platform/logger.hpp"
 #include "viking_room.hpp"
@@ -149,7 +151,6 @@ void vtest::VikingRoom::enumerateGPUExtensions_(VkPhysicalDevice device) {
     }
 }
 
-
 /**
  * Initialises physical GPU.
  *
@@ -261,6 +262,119 @@ void vtest::VikingRoom::initDevice_(vtest::QueueFamilyIndices indices) {
     vkGetDeviceQueue(m_device, indices.surfaceIndex.value(), 0, &(m_queues.surfaceQueue));
 }
 
+vtest::SwapchainSupport vtest::VikingRoom::querySwapchainCapabilities_() {
+    SwapchainSupport capabilities{};
+
+    auto result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_gpu, m_surface, &(capabilities.capabilities));
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to query surface capabilities.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+
+    uint32_t format_count;
+    result = vkGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface, &format_count, nullptr);
+
+    if (result != VK_SUCCESS || format_count <= 0) {
+        throw vtrs::RuntimeError("Unable to query surface formats.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+
+    capabilities.surfaceFormats.resize(format_count);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface, &format_count, capabilities.surfaceFormats.data());
+
+    uint32_t mode_count;
+    result = vkGetPhysicalDeviceSurfacePresentModesKHR(m_gpu, m_surface, &mode_count, nullptr);
+
+    if (result != VK_SUCCESS || mode_count <= 0) {
+        throw vtrs::RuntimeError("Unable to query surface present modes.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+
+    capabilities.presentModes.resize(mode_count);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_gpu, m_surface, &mode_count, capabilities.presentModes.data());
+
+    return capabilities;
+}
+
+void vtest::VikingRoom::createSwapchain_(QueueFamilyIndices indices) {
+    SwapchainSupport support = querySwapchainCapabilities_();
+
+    VkSwapchainCreateInfoKHR create_info {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = m_surface,
+        .minImageCount = support.capabilities.minImageCount + 1,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+    };
+
+    if (support.capabilities.maxImageCount > 0
+        && create_info.minImageCount > support.capabilities.maxImageCount) {
+        create_info.minImageCount = support.capabilities.maxImageCount;
+    }
+
+    create_info.imageFormat = support.surfaceFormats.front().format;
+    create_info.imageColorSpace = support.surfaceFormats.front().colorSpace;
+
+    for(const auto& current : support.surfaceFormats) {
+        if (current.format == VK_FORMAT_B8G8R8A8_SRGB && current.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            create_info.imageFormat = current.format;
+            create_info.imageColorSpace = current.colorSpace;
+            break;
+        }
+    }
+
+    if (support.capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+        create_info.imageExtent = support.capabilities.currentExtent;
+
+    } else {
+        int width = static_cast<uint32_t>(800);
+        int height = static_cast<uint32_t>(600);
+
+        create_info.imageExtent.width = std::clamp<uint32_t>(width, support.capabilities.minImageExtent.width, support.capabilities.maxImageExtent.width);
+        create_info.imageExtent.height = std::clamp<uint32_t>(height, support.capabilities.minImageExtent.height, support.capabilities.maxImageExtent.height);
+    }
+
+    if (indices.graphicsIndex != indices.surfaceIndex) {
+        create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        create_info.queueFamilyIndexCount = 2;
+
+        uint32_t pair[] = {indices.graphicsIndex.value(), indices.surfaceIndex.value()};
+        create_info.pQueueFamilyIndices = pair;
+    } else {
+        create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        create_info.queueFamilyIndexCount = 0;
+        create_info.pQueueFamilyIndices = nullptr;
+    }
+
+    create_info.preTransform = support.capabilities.currentTransform;
+    create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+
+    for(const auto& mode : support.presentModes) {
+        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            create_info.presentMode = mode;
+            break;
+        }
+    }
+
+    create_info.clipped = VK_TRUE;
+    create_info.oldSwapchain = VK_NULL_HANDLE;
+
+    auto result = vkCreateSwapchainKHR(m_device, &create_info, nullptr, &m_swapchain);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to create swapchain.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+
+    uint32_t image_count;
+    result = vkGetSwapchainImagesKHR(m_device, m_swapchain, &image_count, nullptr);
+
+    if (result != VK_SUCCESS || image_count == 0) {
+        throw vtrs::RuntimeError("Unable to populate swapchain images.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+
+    m_swapImages.resize(image_count);
+    vkGetSwapchainImagesKHR(m_device, m_swapchain, &image_count, m_swapImages.data());
+}
+
 void vtest::VikingRoom::bootstrap_() {
     vtest::QueueFamilyIndices indices = findQueueFamilies_();
 
@@ -270,6 +384,7 @@ void vtest::VikingRoom::bootstrap_() {
     }
 
     initDevice_(indices);
+    createSwapchain_(indices);
 }
 
 void vtest::VikingRoom::prepareSurface_(vtrs::XCBConnection* connection, uint32_t window) {
@@ -296,6 +411,8 @@ vtest::VikingRoom::VikingRoom(std::vector<const char*>& extensions) :
         m_device{},
         m_surface{},
         m_queues{},
+        m_swapchain{},
+        m_swapImages{},
         m_gpu(VK_NULL_HANDLE) {
     initVulkan_(extensions);
     initGPU_();
@@ -329,9 +446,14 @@ vtest::VikingRoom *vtest::VikingRoom::factory(vtrs::XCBConnection* connection, u
  * Cleans up.
  */
 vtest::VikingRoom::~VikingRoom() {
+    vtrs::Logger::info("Cleaning up Vulkan application.");
+
+    vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
     vkDestroyDevice(m_device, nullptr);
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
     vkDestroyInstance(m_instance, nullptr);
+
+    vtrs::Logger::info("Done.");
 }
 
 /**
@@ -376,7 +498,7 @@ void vtest::VikingRoom::printGPUInfo() {
 
 void vtest::VikingRoom::printIExtensions() {
     vtrs::Logger::print("Available Instance Extensions");
-    vtrs::Logger::print("************************");
+    vtrs::Logger::print("*****************************");
 
     for (auto& name : s_iExtensions) {
         vtrs::Logger::print(name);
