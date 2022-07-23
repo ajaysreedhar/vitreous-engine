@@ -28,8 +28,12 @@ namespace vtrs {
 class PlatformError : public RuntimeError {
 
 public:
-    PlatformError(std::string& message, ErrorKind kind, int code) : RuntimeError(message, kind, code) {}
-    PlatformError(std::string& message, ErrorKind kind) : RuntimeError(message, kind){}
+    enum ErrorKind: int {
+        E_TYPE_XCB_CLIENT = 240
+    };
+
+    PlatformError(const std::string& message, ErrorKind kind, int code) : RuntimeError(message, kind, code) {}
+    PlatformError(const std::string& message, ErrorKind kind) : RuntimeError(message, kind){}
 };
 
 } // namespace vtrs
