@@ -20,7 +20,7 @@
  */
 
 #pragma once
-#define VK_USE_PLATFORM_XCB_KHR true
+#define VK_USE_PLATFORM_XCB_KHR 1
 
 #include <vector>
 #include <optional>
