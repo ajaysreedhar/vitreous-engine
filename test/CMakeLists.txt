@@ -39,7 +39,7 @@ target_link_libraries(glfw-test PRIVATE -lglfw vtrs-engine)
 
 # ---
 # Executable: xcb-test
-# Implements a XCB client using vtrs-engine.
+# Implements a XCB client using engine/platform/xcb_client.
 # =========================================================================
 add_executable(xcb-test xcb_client/test_main.cpp)
 target_link_libraries(xcb-test PRIVATE vtrs-engine)
