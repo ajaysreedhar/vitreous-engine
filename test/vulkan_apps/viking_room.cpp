@@ -22,8 +22,8 @@
 #include <vector>
 #include <map>
 #include <set>
-#include "engine/except/error.hpp"
-#include "engine/platform/logger.hpp"
+#include "except/runtime.hpp"
+#include "platform/logger.hpp"
 #include "viking_room.hpp"
 
 bool vtest::VikingRoom::s_isInitialised = false;
@@ -272,7 +272,7 @@ void vtest::VikingRoom::bootstrap_() {
     initDevice_(indices);
 }
 
-void vtest::VikingRoom::prepareSurface_(vtest::XCBConnection* connection, uint32_t window) {
+void vtest::VikingRoom::prepareSurface_(vtrs::XCBConnection* connection, uint32_t window) {
     VkXcbSurfaceCreateInfoKHR surface_info {};
     surface_info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
     surface_info.connection = connection;
@@ -307,7 +307,7 @@ vtest::VikingRoom::VikingRoom(std::vector<const char*>& extensions) :
  * ========================================================================
  */
 
-vtest::VikingRoom *vtest::VikingRoom::factory(vtest::XCBConnection* connection, uint32_t window) {
+vtest::VikingRoom *vtest::VikingRoom::factory(vtrs::XCBConnection* connection, uint32_t window) {
     if (!s_isInitialised) {
         enumerateExtensions_();
         s_isInitialised = true;

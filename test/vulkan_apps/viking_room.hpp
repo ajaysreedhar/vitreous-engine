@@ -25,7 +25,8 @@
 #include <vector>
 #include <optional>
 #include <vulkan/vulkan.h>
-#include "xcb_client/xcb_window.hpp"
+
+#include "platform/xcb_client.hpp"
 
 namespace vtest {
 
@@ -103,14 +104,14 @@ private:
 
     QueueFamilyIndices findQueueFamilies_();
 
-    void prepareSurface_(vtest::XCBConnection*, uint32_t);
+    void prepareSurface_(vtrs::XCBConnection*, uint32_t);
 
     void bootstrap_();
 
     explicit VikingRoom(std::vector<const char*>&);
 
 public:
-    static VikingRoom* factory(vtest::XCBConnection*, uint32_t);
+    static VikingRoom* factory(vtrs::XCBConnection*, uint32_t);
     static void printIExtensions();
 
     ~VikingRoom();

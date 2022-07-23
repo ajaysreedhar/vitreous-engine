@@ -20,10 +20,10 @@
  */
 
 #include <cstdlib>
-#include "engine/except/error.hpp"
-#include "engine/platform/standard.hpp"
-#include "engine/platform/logger.hpp"
-#include "xcb_client/xcb_window.hpp"
+#include "platform/standard.hpp"
+#include "platform/logger.hpp"
+#include "platform/except.hpp"
+#include "platform/xcb_client.hpp"
 #include "viking_room.hpp"
 
 int main() {
@@ -35,37 +35,37 @@ int main() {
 
     vtrs::Logger::info("Test: Vulkan Demo VikingRoom");
 
-    vtest::XCBWindow* xcb_window;
+    vtrs::XCBClient* xcb_client;
     vtest::VikingRoom* application;
     uint32_t window_id;
 
     try {
-        xcb_window = new vtest::XCBWindow();
-        window_id = xcb_window->createWindow(800, 600);
+        xcb_client = new vtrs::XCBClient;
+        window_id = xcb_client->createWindow(800, 600);
 
-        application = vtest::VikingRoom::factory(xcb_window->getConnection(), window_id);
+        application = vtest::VikingRoom::factory(xcb_client->getConnection(), window_id);
         application->printGPUInfo();
         application->printGPUExtensions();
 
-    } catch (vtrs::RuntimeError& error) {
+    } catch (vtrs::PlatformError& error) {
         vtrs::Logger::fatal(error.what(), "Kind:", error.getKind(), ", Code:", error.getCode());
 
-        delete xcb_window;
+        delete xcb_client;
         return EXIT_FAILURE;
     }
 
     vtest::VikingRoom::printIExtensions();
 
     while (true) {
-        auto event = xcb_window->pollEvents();
+        auto event = xcb_client->pollEvents();
 
-        if (event.kind == vtest::WSIWindowEvent::KEY_PRESS && event.eventDetail == 24) {
+        if (event.kind == vtrs::WSIWindowEvent::KEY_PRESS && event.eventDetail == 24) {
             break;
         }
     }
 
     delete application;
-    delete xcb_window;
+    delete xcb_client;
 
     return EXIT_SUCCESS;
 }
