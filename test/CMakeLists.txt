@@ -16,19 +16,12 @@ add_library(vtest-wlclient SHARED
 target_link_libraries(vtest-wlclient PUBLIC -lwayland-client vtrs-engine)
 
 # ---
-# Library: vtest-xcb-client
-# XCB Client that provides classes to create XCB windows.
-# =========================================================================
-add_library(vtest-xcb-client SHARED xcb_client/xcb_window.cpp xcb_client/xcb_window.hpp)
-target_link_libraries(vtest-xcb-client PUBLIC -lxcb vtrs-engine)
-
-# ---
 # Executable: vulkan-test
 # Vulkan application to test graphics capabilities.
 # =========================================================================
 add_executable(vulkan-test vulkan_apps/viking_room.cpp vulkan_apps/viking_room.hpp vulkan_apps/test_main.cpp)
-target_link_libraries(vulkan-test PRIVATE ${Vulkan_LIBRARIES} vtrs-engine vtest-xcb-client)
-target_include_directories(vulkan-test PRIVATE ${Vulkan_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(vulkan-test PRIVATE ${Vulkan_LIBRARIES} vtrs-engine)
+target_include_directories(vulkan-test PRIVATE ${Vulkan_INCLUDE_DIRS})
 
 # ---
 # Executable: wlclient-test
@@ -46,7 +39,7 @@ target_link_libraries(glfw-test PRIVATE -lglfw vtrs-engine)
 
 # ---
 # Executable: xcb-test
-# Implements a XCB client using vtest-xcb-client library.
+# Implements a XCB client using vtrs-engine.
 # =========================================================================
 add_executable(xcb-test xcb_client/test_main.cpp)
-target_link_libraries(xcb-test PRIVATE -lxcb vtrs-engine vtest-xcb-client)
+target_link_libraries(xcb-test PRIVATE vtrs-engine)
