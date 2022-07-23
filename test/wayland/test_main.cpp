@@ -2,7 +2,7 @@
 #include <unistd.h>
 
 #include <wayland-client.h>
-#include "engine/platform/logger.hpp"
+#include "platform/logger.hpp"
 #include "wl_client.hpp"
 
 void xdg_surface_configure_handler
@@ -82,7 +82,7 @@ int main() {
 
     vtrs::Logger::info("Preparing to dispatch");
 
-    for(int loop = 0; loop < 5; loop++) {
+    for(int loop = 0; loop < 2; loop++) {
         vtrs::Logger::info("Ping", loop);
         vtest::WLClient::dispatch();
         sleep(1);

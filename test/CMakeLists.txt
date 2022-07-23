@@ -2,18 +2,16 @@ set(ENV{VULKAN_SDK} /opt/Vulkan-SDK-1.3.216/x86_64)
 find_package(Vulkan REQUIRED FATAL_ERROR)
 
 set(BASEPATH "${CMAKE_SOURCE_DIR}")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/out/test")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/out/test")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/dist/test")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/dist/test")
 
 # ---
 # Library: vtest-wlclient
 # Wayland client library implemented using core wayland-client interface.
 # =========================================================================
-add_library(vtest-wlclient SHARED
-        wayland/xdg_shell.c wayland/xdg_shell.h
-        wayland/wl_client.cpp wayland/wl_client.hpp)
-
-target_link_libraries(vtest-wlclient PUBLIC -lwayland-client vtrs-engine)
+add_library(vtest-wlclient SHARED wayland/wl_client.cpp wayland/wl_client.hpp)
+target_link_libraries(vtest-wlclient PUBLIC -lwayland-client vtrs-tp-wayland vtrs-engine)
+target_include_directories(vtest-wlclient PUBLIC "${CMAKE_SOURCE_DIR}/lib")
 
 # ---
 # Executable: vulkan-test
@@ -21,7 +19,7 @@ target_link_libraries(vtest-wlclient PUBLIC -lwayland-client vtrs-engine)
 # =========================================================================
 add_executable(vulkan-test vulkan_apps/viking_room.cpp vulkan_apps/viking_room.hpp vulkan_apps/test_main.cpp)
 target_link_libraries(vulkan-test PRIVATE ${Vulkan_LIBRARIES} vtrs-engine)
-target_include_directories(vulkan-test PRIVATE ${Vulkan_INCLUDE_DIRS})
+target_include_directories(vulkan-test PRIVATE ${Vulkan_INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/engine")
 
 # ---
 # Executable: wlclient-test

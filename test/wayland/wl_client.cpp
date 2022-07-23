@@ -2,8 +2,8 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <stdexcept>
-#include "engine/platform/logger.hpp"
-#include "xdg_shell.h"
+#include "platform/logger.hpp"
+#include "third_party/wayland/xdg_shell_v6.h"
 #include "wl_client.hpp"
 
 struct wl_display* vtest::WLClient::s_display = nullptr;
@@ -56,7 +56,7 @@ vtest::WLClient::WLClient() : m_buffer(nullptr) {
     m_sharedFile = -468;
     m_wlSurface  = wl_compositor_create_surface(s_compositor);
     m_xdgSurface = zxdg_shell_v6_get_xdg_surface(s_xdgShell, m_wlSurface);
-};
+}
 
 vtest::WLClient::~WLClient() {
     wl_surface_destroy(m_wlSurface);
