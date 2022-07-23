@@ -21,8 +21,8 @@
 
 #include <cstdlib>
 
-#include "engine/platform/logger.hpp"
-#include "engine/platform/xcb_client.hpp"
+#include "platform/logger.hpp"
+#include "platform/xcb_client.hpp"
 
 int main() {
     vtrs::Logger::info("Test: XCB Client");
