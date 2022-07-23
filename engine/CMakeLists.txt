@@ -13,5 +13,4 @@ add_library(vtrs-engine SHARED
         )
 
 target_link_libraries(vtrs-engine PUBLIC -lxcb)
-target_include_directories(vtrs-engine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_include_directories(vtrs-engine PUBLIC "${CMAKE_SOURCE_DIR}")
+target_include_directories(vtrs-engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
