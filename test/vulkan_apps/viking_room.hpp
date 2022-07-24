@@ -71,12 +71,15 @@ private:
     std::vector<std::string> m_gExtensions;
 
     std::vector<VkImage> m_swapImages;
+    std::vector<VkImageView> m_swapImageViews;
 
     VkInstance m_instance;
     VkPhysicalDevice m_gpu;
     VkDevice m_device;
     VkSurfaceKHR m_surface;
     VkSwapchainKHR m_swapchain;
+    VkFormat m_imageFormat;
+    VkExtent2D m_extend2D;
 
     QueueWrapper m_queues;
 
@@ -118,6 +121,8 @@ private:
     QueueFamilyIndices findQueueFamilies_();
 
     void prepareSurface_(vtrs::XCBConnection*, uint32_t);
+
+    void createImageViews_();
 
     void bootstrap_();
 
