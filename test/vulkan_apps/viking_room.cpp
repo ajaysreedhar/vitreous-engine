@@ -373,6 +373,50 @@ void vtest::VikingRoom::createSwapchain_(QueueFamilyIndices indices) {
 
     m_swapImages.resize(image_count);
     vkGetSwapchainImagesKHR(m_device, m_swapchain, &image_count, m_swapImages.data());
+
+    m_imageFormat = create_info.imageFormat;
+    m_extend2D.width = create_info.imageExtent.width;
+    m_extend2D.height = create_info.imageExtent.height;
+}
+
+void vtest::VikingRoom::createImageViews_() {
+    m_swapImageViews.resize(m_swapImages.size());
+
+    VkComponentMapping components {
+        VK_COMPONENT_SWIZZLE_IDENTITY,
+        VK_COMPONENT_SWIZZLE_IDENTITY,
+        VK_COMPONENT_SWIZZLE_IDENTITY,
+        VK_COMPONENT_SWIZZLE_IDENTITY
+    };
+
+    VkImageSubresourceRange range {
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        0,
+        1,
+        0,
+        1
+    };
+
+    int counter = 0;
+
+    for(size_t index = 0; index < m_swapImages.size(); index++) {
+        VkImageViewCreateInfo view_info {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = m_swapImages[index],
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = m_imageFormat,
+            .components = components,
+            .subresourceRange = range
+        };
+
+        if (vkCreateImageView(m_device, &view_info, nullptr, &(m_swapImageViews.at(index))) == VK_SUCCESS) {
+            counter++;
+        }
+    }
+
+    if (counter < m_swapImages.size()) {
+        throw vtrs::RuntimeError("Unable to populate image views for all images.", vtrs::RuntimeError::E_TYPE_VK_RESULT, 0);
+    }
 }
 
 void vtest::VikingRoom::bootstrap_() {
@@ -385,6 +429,7 @@ void vtest::VikingRoom::bootstrap_() {
 
     initDevice_(indices);
     createSwapchain_(indices);
+    createImageViews_();
 }
 
 void vtest::VikingRoom::prepareSurface_(vtrs::XCBConnection* connection, uint32_t window) {
@@ -413,7 +458,10 @@ vtest::VikingRoom::VikingRoom(std::vector<const char*>& extensions) :
         m_queues{},
         m_swapchain{},
         m_swapImages{},
-        m_gpu(VK_NULL_HANDLE) {
+        m_swapImageViews{},
+        m_gpu(VK_NULL_HANDLE),
+        m_imageFormat(VK_FORMAT_UNDEFINED),
+        m_extend2D{} {
     initVulkan_(extensions);
     initGPU_();
 }
@@ -447,6 +495,10 @@ vtest::VikingRoom *vtest::VikingRoom::factory(vtrs::XCBConnection* connection, u
  */
 vtest::VikingRoom::~VikingRoom() {
     vtrs::Logger::info("Cleaning up Vulkan application.");
+
+    for (auto& image_view : m_swapImageViews) {
+        vkDestroyImageView(m_device, image_view, nullptr);
+    }
 
     vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
     vkDestroyDevice(m_device, nullptr);
