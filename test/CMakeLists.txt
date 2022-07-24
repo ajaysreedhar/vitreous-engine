@@ -1,4 +1,3 @@
-set(ENV{VULKAN_SDK} /opt/Vulkan-SDK-1.3.216/x86_64)
 find_package(Vulkan REQUIRED FATAL_ERROR)
 
 set(BASEPATH "${CMAKE_SOURCE_DIR}")
