@@ -1,5 +1,5 @@
 /**
- * except.cpp - Throwable platform exception
+ * except.hpp - Throwable platform exception
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2021-present Ajay Sreedhar
@@ -29,11 +29,12 @@ class PlatformError : public RuntimeError {
 
 public:
     enum ErrorKind: int {
-        E_TYPE_XCB_CLIENT = 240
+        E_TYPE_XCB_CLIENT = 240,
+        E_TYPE_WAYLAND_CLIENT,
     };
 
     PlatformError(const std::string& message, ErrorKind kind, int code) : RuntimeError(message, kind, code) {}
-    PlatformError(const std::string& message, ErrorKind kind) : RuntimeError(message, kind){}
+    PlatformError(const std::string& message, ErrorKind kind) : RuntimeError(message, kind) {}
 };
 
 } // namespace vtrs
