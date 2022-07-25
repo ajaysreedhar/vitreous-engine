@@ -9,9 +9,10 @@ add_library(vtrs-engine SHARED
         platform/except.hpp
         platform/logger.cpp             platform/logger.hpp
         platform/ws_interface.hpp
+        ../lib/third_party/wayland/xdg_shell_protocol.c ../lib/third_party/wayland/xdg_shell_protocol.h
         platform/wayland_client.cpp     platform/wayland_client.hpp
         platform/xcb_client.cpp         platform/xcb_client.hpp
         )
 
-target_link_libraries(vtrs-engine PUBLIC -lxcb -lwayland-client vtrs-tp-wayland)
+target_link_libraries(vtrs-engine PUBLIC -lxcb -lwayland-client)
 target_include_directories(vtrs-engine PUBLIC "${CMAKE_SOURCE_DIR}/lib" "${CMAKE_CURRENT_SOURCE_DIR}")
