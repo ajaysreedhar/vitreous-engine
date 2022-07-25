@@ -30,7 +30,7 @@ class PlatformError : public RuntimeError {
 public:
     enum ErrorKind: int {
         E_TYPE_XCB_CLIENT = 240,
-        E_TYPE_WAYLAND_CLIENT,
+        E_TYPE_WAYLAND_CLIENT
     };
 
     PlatformError(const std::string& message, ErrorKind kind, int code) : RuntimeError(message, kind, code) {}
