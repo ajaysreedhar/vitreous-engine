@@ -1,5 +1,5 @@
 set(BASEPATH "${CMAKE_SOURCE_DIR}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/dist/test")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/dist/lib")
 
 # ---
 # Library: vtrs-tp-wayland
