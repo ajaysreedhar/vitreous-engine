@@ -46,9 +46,20 @@ struct swapchain_support {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct spirv_code {
+    char* data = nullptr;
+    size_t size = 0;
+
+    ~spirv_code() {
+        free(data);
+        size = 0;
+    }
+};
+
 typedef struct queue_family_indices QueueFamilyIndices;
 typedef struct queue_wrapper QueueWrapper;
 typedef struct swapchain_support SwapchainSupport;
+typedef struct spirv_code SPIRVCode;
 
 /**
  * Vulkan Demo VikingRoom.
@@ -93,6 +104,8 @@ private:
 
     static void enumerateExtensions_();
 
+    static SPIRVCode* readSPIRVFile_(const std::string& abs_path);
+
     void abortBootstrap_();
 
     void enumerateGPUExtensions_(VkPhysicalDevice);
@@ -123,6 +136,10 @@ private:
     void prepareSurface_(vtrs::XCBConnection*, uint32_t);
 
     void createImageViews_();
+
+    VkShaderModule createShaderModule_(const SPIRVCode*);
+
+    void createGraphicsPipeline_();
 
     void bootstrap_();
 

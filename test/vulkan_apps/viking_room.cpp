@@ -19,6 +19,7 @@
  * ========================================================================
  */
 
+#include <fstream>
 #include <vector>
 #include <map>
 #include <set>
@@ -94,6 +95,26 @@ void vtest::VikingRoom::enumerateExtensions_() {
     for (auto& item : extensions) {
         s_iExtensions.emplace_back(item.extensionName);
     }
+}
+
+vtest::SPIRVCode* vtest::VikingRoom::readSPIRVFile_(const std::string &abs_path) {
+    std::ifstream spv_file(abs_path, std::ios::ate | std::ios::binary);
+
+    if (!spv_file.is_open()) {
+        throw vtrs::RuntimeError(abs_path, vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    auto file_size = spv_file.tellg();
+    spv_file.seekg(0);
+
+    auto spv_code = new vtest::SPIRVCode();
+    spv_code->data = new char[file_size]();
+    spv_code->size = file_size;
+
+    spv_file.read(spv_code->data, file_size);
+    spv_file.close();
+
+    return spv_code;
 }
 
 /**
@@ -419,6 +440,38 @@ void vtest::VikingRoom::createImageViews_() {
     }
 }
 
+VkShaderModule vtest::VikingRoom::createShaderModule_(const SPIRVCode* const spv_code) {
+    VkShaderModule module {};
+
+    VkShaderModuleCreateInfo module_info {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = spv_code->size,
+        .pCode = reinterpret_cast<uint32_t*>(spv_code->data)
+    };
+
+    auto result = vkCreateShaderModule(m_device, &module_info, nullptr, &module);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to create shader module.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+
+    return module;
+}
+
+void vtest::VikingRoom::createGraphicsPipeline_() {
+    auto vert_shader = readSPIRVFile_("shaders/triangle-vert.spv");
+    auto frag_shader = readSPIRVFile_("shaders/triangle-frag.spv");
+
+    auto vert_module = createShaderModule_(vert_shader);
+    auto frag_module = createShaderModule_(frag_shader);
+
+    vkDestroyShaderModule(m_device, vert_module, nullptr);
+    vkDestroyShaderModule(m_device, frag_module, nullptr);
+
+    delete vert_shader;
+    delete frag_shader;
+}
+
 void vtest::VikingRoom::bootstrap_() {
     vtest::QueueFamilyIndices indices = findQueueFamilies_();
 
@@ -430,6 +483,7 @@ void vtest::VikingRoom::bootstrap_() {
     initDevice_(indices);
     createSwapchain_(indices);
     createImageViews_();
+    createGraphicsPipeline_();
 }
 
 void vtest::VikingRoom::prepareSurface_(vtrs::XCBConnection* connection, uint32_t window) {
@@ -496,7 +550,7 @@ vtest::VikingRoom *vtest::VikingRoom::factory(vtrs::XCBConnection* connection, u
 vtest::VikingRoom::~VikingRoom() {
     vtrs::Logger::info("Cleaning up Vulkan application.");
 
-    for (auto& image_view : m_swapImageViews) {
+    for (auto image_view : m_swapImageViews) {
         vkDestroyImageView(m_device, image_view, nullptr);
     }
 
