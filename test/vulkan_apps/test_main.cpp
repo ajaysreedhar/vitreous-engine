@@ -20,13 +20,18 @@
  */
 
 #include <cstdlib>
+#include <cstring>
 #include "platform/standard.hpp"
 #include "platform/logger.hpp"
 #include "platform/except.hpp"
 #include "platform/xcb_client.hpp"
+// #include "platform/wayland_client.hpp"
 #include "viking_room.hpp"
 
-int main() {
+//*
+int main(int argc, char** argv) {
+
+bool is_verbose = (argc > 1 && strcmp(argv[1], "-v") == 0);
 
 #if !defined(VTRS_OS_TYPE_LINUX) && !defined(VTRS_OS_TYPE_WINDOWS)
     vtrs::Logger::fatal("Test runs only on Windows and Linux.");
@@ -45,7 +50,8 @@ int main() {
 
         application = vtest::VikingRoom::factory(xcb_client->getConnection(), window_id);
         application->printGPUInfo();
-        application->printGPUExtensions();
+
+        if (is_verbose) application->printGPUExtensions();
 
     } catch (vtrs::PlatformError& error) {
         vtrs::Logger::fatal(error.what(), "Kind:", error.getKind(), ", Code:", error.getCode());
@@ -54,10 +60,11 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    vtest::VikingRoom::printIExtensions();
+    if (is_verbose) vtest::VikingRoom::printIExtensions();
 
     while (true) {
         auto event = xcb_client->pollEvents();
+        application->drawFrame();
 
         if (event.kind == vtrs::WSIWindowEvent::KEY_PRESS && event.eventDetail == 24) {
             break;
@@ -69,3 +76,49 @@ int main() {
 
     return EXIT_SUCCESS;
 }
+// */
+
+/*
+int main(int argc, char** argv) {
+
+    bool is_verbose = (argc > 1 && strcmp(argv[1], "-v") == 0);
+
+#if !defined(VTRS_OS_TYPE_LINUX) && !defined(VTRS_OS_TYPE_WINDOWS)
+    vtrs::Logger::fatal("Test runs only on Windows and Linux.");
+    return EXIT_FAILURE;
+#endif
+
+    vtrs::Logger::info("Test: Vulkan Demo VikingRoom");
+
+    vtrs::WaylandClient* wayland_client;
+    vtest::VikingRoom* application;
+
+    try {
+        wayland_client = vtrs::WaylandClient::factory();
+        wayland_client->createSurface("Viking Room");
+
+        application = vtest::VikingRoom::factory(vtrs::WaylandClient::getDisplay(), wayland_client->getSurface());
+        application->printGPUInfo();
+
+        if (is_verbose) application->printGPUExtensions();
+
+    } catch (vtrs::PlatformError& error) {
+        vtrs::Logger::fatal(error.what(), "Kind:", error.getKind(), ", Code:", error.getCode());
+
+        delete wayland_client;
+        return EXIT_FAILURE;
+    }
+
+    if (is_verbose) vtest::VikingRoom::printIExtensions();
+
+    while (true) {
+        auto event = vtrs::WaylandClient::displayDispatch();
+        application->drawFrame();
+    }
+
+    delete application;
+    delete wayland_client;
+
+    return EXIT_SUCCESS;
+}
+ //  */

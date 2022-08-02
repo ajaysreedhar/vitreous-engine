@@ -21,14 +21,30 @@
 
 #pragma once
 #define VK_USE_PLATFORM_XCB_KHR 1
+#define VK_USE_PLATFORM_WAYLAND_KHR 1
 
 #include <vector>
 #include <optional>
 #include <vulkan/vulkan.h>
 
 #include "platform/xcb_client.hpp"
+#include "platform/wayland_client.hpp"
+
+#define ASSERT_VK_RESULT(result, message) \
+if (result != VK_SUCCESS) { \
+    throw vtrs::RuntimeError(message, vtrs::RuntimeError::E_TYPE_VK_RESULT, result); \
+}
 
 namespace vtest {
+
+struct rgb_alpha {
+    float red = 0.0f;
+    float green = 0.0f;
+    float blue = 0.0f;
+    float alpha = 1.0f;
+};
+
+typedef struct rgb_alpha RGBAlpha;
 
 struct queue_family_indices {
     std::optional<uint32_t> graphicsIndex;
@@ -76,6 +92,8 @@ private:
      */
     static std::vector<std::string> s_iExtensions;
 
+    static RGBAlpha s_bgColor;
+
     /**
      * @brief Holds supported GPU device extensions.
      */
@@ -83,6 +101,7 @@ private:
 
     std::vector<VkImage> m_swapImages;
     std::vector<VkImageView> m_swapImageViews;
+    std::vector<VkFramebuffer> m_swapFramebuffers;
 
     VkInstance m_instance;
     VkPhysicalDevice m_gpu;
@@ -91,6 +110,15 @@ private:
     VkSwapchainKHR m_swapchain;
     VkFormat m_imageFormat;
     VkExtent2D m_extend2D;
+    VkRenderPass m_renderPass;
+    VkPipelineLayout m_pipelineLayout;
+    VkPipeline m_graphicsPipeline;
+    VkCommandPool m_commandPool;
+    VkCommandBuffer m_commandBuffer;
+
+    VkSemaphore m_imageAvailableSem;
+    VkSemaphore m_rendererFinishedSem;
+    VkFence m_inFlightFence;
 
     QueueWrapper m_queues;
 
@@ -134,12 +162,22 @@ private:
     QueueFamilyIndices findQueueFamilies_();
 
     void prepareSurface_(vtrs::XCBConnection*, uint32_t);
+    void prepareSurface_(vtrs::WLDisplay*, vtrs::WLSurface*);
 
     void createImageViews_();
 
     VkShaderModule createShaderModule_(const SPIRVCode*);
 
+    void createRenderPass_();
+
     void createGraphicsPipeline_();
+
+    void createFrameBuffers_();
+
+    void createCommandPool_(QueueFamilyIndices);
+    void createCommandBuffer_();
+    void recordCommandBuffer_(VkCommandBuffer, uint32_t);
+    void createSyncObjects_();
 
     void bootstrap_();
 
@@ -147,9 +185,13 @@ private:
 
 public:
     static VikingRoom* factory(vtrs::XCBConnection*, uint32_t);
+    static VikingRoom* factory(vtrs::WLDisplay*, vtrs::WLSurface*);
+
     static void printIExtensions();
 
     ~VikingRoom();
+
+    void drawFrame();
 
     /**
      * Prints the properties of the selected GPU.

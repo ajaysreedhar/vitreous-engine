@@ -30,7 +30,13 @@
 #include "viking_room.hpp"
 
 bool vtest::VikingRoom::s_isInitialised = false;
-std::vector<std::string> vtest::VikingRoom::s_iExtensions{};
+std::vector<std::string> vtest::VikingRoom::s_iExtensions {};
+vtest::RGBAlpha vtest::VikingRoom::s_bgColor {
+    0.0f,
+    0.0f,
+    0.0f,
+    1.0f
+};
 
 /**
  * Static utility function definitions.
@@ -458,6 +464,46 @@ VkShaderModule vtest::VikingRoom::createShaderModule_(const SPIRVCode* const spv
     return module;
 }
 
+void vtest::VikingRoom::createRenderPass_() {
+    VkAttachmentDescription description {
+        .format = m_imageFormat,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    };
+
+    VkAttachmentReference attachment {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    };
+
+    VkSubpassDescription subpass {
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &attachment
+    };
+
+    VkRenderPassCreateInfo render_pass_info {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &description,
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+    };
+
+    auto result = vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_renderPass);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to create render pass.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+}
+
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "DanglingPointer"
 void vtest::VikingRoom::createGraphicsPipeline_() {
     auto vert_shader = readSPIRVFile_("shaders/triangle-vert.spv");
     auto frag_shader = readSPIRVFile_("shaders/triangle-frag.spv");
@@ -465,11 +511,300 @@ void vtest::VikingRoom::createGraphicsPipeline_() {
     auto vert_module = createShaderModule_(vert_shader);
     auto frag_module = createShaderModule_(frag_shader);
 
+    VkPipelineShaderStageCreateInfo vert_stage_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = vert_module,
+        .pName = "main"
+    };
+
+    VkPipelineShaderStageCreateInfo frag_stage_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = frag_module,
+        .pName = "main"
+    };
+
+    VkPipelineShaderStageCreateInfo shader_stages[] = {vert_stage_info, frag_stage_info};
+
+    std::vector<VkDynamicState> dynamic_states;
+    dynamic_states.reserve(2);
+    dynamic_states.emplace_back(VK_DYNAMIC_STATE_VIEWPORT);
+    dynamic_states.emplace_back(VK_DYNAMIC_STATE_SCISSOR);
+
+    VkPipelineDynamicStateCreateInfo dynamic_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = static_cast<uint32_t>(dynamic_states.size()),
+        .pDynamicStates = dynamic_states.data()
+    };
+
+    VkPipelineVertexInputStateCreateInfo vertex_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = 0,
+        .pVertexBindingDescriptions = nullptr,
+        .vertexAttributeDescriptionCount = 0,
+        .pVertexAttributeDescriptions = nullptr
+    };
+
+    VkPipelineInputAssemblyStateCreateInfo assembly_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE
+    };
+
+    VkViewport viewport {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(m_extend2D.width),
+        .height = static_cast<float>(m_extend2D.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+
+    VkRect2D scissor {
+        .offset = {0, 0},
+        .extent = m_extend2D
+    };
+
+    VkPipelineViewportStateCreateInfo vstate_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor
+    };
+
+    VkPipelineRasterizationStateCreateInfo rasterizer_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .depthBiasEnable = VK_FALSE,
+        .depthBiasConstantFactor = 0.0f,
+        .depthBiasClamp = 0.0f,
+        .depthBiasSlopeFactor = 0.0f,
+        .lineWidth = 1.0f,
+    };
+
+    VkPipelineMultisampleStateCreateInfo multisample_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 1.0f,
+        .pSampleMask = nullptr,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE
+    };
+
+    VkPipelineColorBlendAttachmentState color_blend_attachments {
+        .blendEnable = VK_FALSE,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+    };
+
+    VkPipelineColorBlendStateCreateInfo color_blending {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
+        .attachmentCount = 1,
+        .pAttachments = &color_blend_attachments,
+    };
+
+    for (int index = 0; index <= 3; index++) {
+        color_blending.blendConstants[index] = 0.0f;
+    }
+
+    VkPipelineLayoutCreateInfo pipeline_layout_info {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 0,
+        .pSetLayouts = nullptr,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = nullptr
+    };
+
+    auto result = vkCreatePipelineLayout(m_device, &pipeline_layout_info, nullptr, &m_pipelineLayout);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to create pipeline layout.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+
+    VkGraphicsPipelineCreateInfo pipeline_info {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = 2,
+        .pStages = shader_stages,
+        .pVertexInputState = &vertex_info,
+        .pInputAssemblyState = &assembly_info,
+        .pViewportState = &vstate_info,
+        .pRasterizationState = &rasterizer_info,
+        .pMultisampleState = &multisample_info,
+        .pDepthStencilState = nullptr,
+        .pColorBlendState = &color_blending,
+        .pDynamicState = &dynamic_info,
+        .layout = m_pipelineLayout,
+        .renderPass = m_renderPass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = -1
+    };
+
+    result = vkCreateGraphicsPipelines(m_device, nullptr, 1, &pipeline_info, nullptr, &m_graphicsPipeline);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to create graphics pipeline.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+
     vkDestroyShaderModule(m_device, vert_module, nullptr);
     vkDestroyShaderModule(m_device, frag_module, nullptr);
 
     delete vert_shader;
     delete frag_shader;
+}
+#pragma clang diagnostic pop
+
+void vtest::VikingRoom::createFrameBuffers_() {
+    VkResult result = VK_SUCCESS;
+    m_swapFramebuffers.resize(m_swapImageViews.size());
+
+    for (size_t index = 0; index < m_swapImageViews.size(); index++) {
+        VkImageView attachments[] = {
+                m_swapImageViews.at(index)
+        };
+
+        VkFramebufferCreateInfo framebuffer_info {
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .renderPass = m_renderPass,
+            .attachmentCount = 1,
+            .pAttachments = attachments,
+            .width = m_extend2D.width,
+            .height = m_extend2D.height,
+            .layers = 1
+        };
+
+        result = vkCreateFramebuffer(m_device, &framebuffer_info, nullptr, &(m_swapFramebuffers.at(index)));
+
+        if(result != VK_SUCCESS) {
+            break;
+        }
+    }
+
+    if (m_swapFramebuffers.size() < m_swapImageViews.size()) {
+        throw vtrs::RuntimeError("Unable to create frame buffers.", vtrs::RuntimeError::E_TYPE_GENERAL, result);
+    }
+}
+
+void vtest::VikingRoom::createCommandPool_(QueueFamilyIndices indices) {
+    VkCommandPoolCreateInfo pool_info {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = indices.graphicsIndex.value()
+    };
+
+    auto result = vkCreateCommandPool(m_device, &pool_info, nullptr, &m_commandPool);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to create command pool.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+}
+
+void vtest::VikingRoom::createCommandBuffer_() {
+    VkCommandBufferAllocateInfo buffer_info {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = m_commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+
+    auto result = vkAllocateCommandBuffers(m_device, &buffer_info, &m_commandBuffer);
+    ASSERT_VK_RESULT(result, "Unable to allocate command buffer.")
+}
+
+void vtest::VikingRoom::createSyncObjects_() {
+    VkSemaphoreCreateInfo semaphoreInfo {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+    };
+
+    VkFenceCreateInfo fenceInfo {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT
+    };
+
+    auto result = vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_imageAvailableSem);
+    ASSERT_VK_RESULT(result, "Unable to create image available semaphore.")
+
+    result = vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_rendererFinishedSem);
+    ASSERT_VK_RESULT(result, "Unable to create renderer finished semaphore.")
+
+    result = vkCreateFence(m_device, &fenceInfo, nullptr, &m_inFlightFence);
+    ASSERT_VK_RESULT(result, "Unable to create synchronization objects for a frame.")
+}
+
+void vtest::VikingRoom::recordCommandBuffer_(VkCommandBuffer command_buffer, uint32_t index) {
+    VkCommandBufferBeginInfo begin_info {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
+    };
+
+    auto result = vkBeginCommandBuffer(m_commandBuffer, &begin_info);
+    ASSERT_VK_RESULT(result, "Unable to start recording command buffer.")
+
+    VkClearValue clear_color = {{{s_bgColor.red, s_bgColor.green, s_bgColor.blue, s_bgColor.alpha}}};
+
+    s_bgColor.red = s_bgColor.red + 0.01;
+    s_bgColor.blue = s_bgColor.red + 0.02;
+
+    if (s_bgColor.red > 1.0f) {
+        s_bgColor.red = 0.0f;
+    }
+
+    if (s_bgColor.blue > 1.0f) {
+        s_bgColor.blue = 0.0f;
+    }
+
+    VkRenderPassBeginInfo renderer_pass_info {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = m_renderPass,
+        .framebuffer = m_swapFramebuffers.at(index),
+        .clearValueCount = 1,
+        .pClearValues = &clear_color
+    };
+
+    renderer_pass_info.renderArea.offset = {0, 0};
+    renderer_pass_info.renderArea.extent = m_extend2D;
+
+    vkCmdBeginRenderPass(command_buffer, &renderer_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
+
+    VkViewport viewport {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(m_extend2D.width),
+        .height = static_cast<float>(m_extend2D.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+
+    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+    VkRect2D scissor {
+        .offset = {0, 0},
+        .extent = m_extend2D
+    };
+
+    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+    vkCmdDraw(command_buffer, 3, 1, 0, 0);
+    vkCmdEndRenderPass(command_buffer);
+
+    result = vkEndCommandBuffer(command_buffer);
+
+    if (result != VK_SUCCESS) {
+        throw vtrs::RuntimeError("Unable to end recording command buffer.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
 }
 
 void vtest::VikingRoom::bootstrap_() {
@@ -483,7 +818,12 @@ void vtest::VikingRoom::bootstrap_() {
     initDevice_(indices);
     createSwapchain_(indices);
     createImageViews_();
+    createRenderPass_();
     createGraphicsPipeline_();
+    createFrameBuffers_();
+    createCommandPool_(indices);
+    createCommandBuffer_();
+    createSyncObjects_();
 }
 
 void vtest::VikingRoom::prepareSurface_(vtrs::XCBConnection* connection, uint32_t window) {
@@ -497,6 +837,20 @@ void vtest::VikingRoom::prepareSurface_(vtrs::XCBConnection* connection, uint32_
     if (result != VK_SUCCESS) {
         vkDestroyInstance(m_instance, nullptr);
         throw vtrs::RuntimeError("Unable to create XCB surface.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
+    }
+}
+
+void vtest::VikingRoom::prepareSurface_(vtrs::WLDisplay* display, vtrs::WLSurface* surface) {
+    VkWaylandSurfaceCreateInfoKHR surface_info {};
+    surface_info.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+    surface_info.display = display;
+    surface_info.surface = surface;
+
+    auto result = vkCreateWaylandSurfaceKHR(m_instance, &surface_info, nullptr, &this->m_surface);
+
+    if (result != VK_SUCCESS) {
+        vkDestroyInstance(m_instance, nullptr);
+        throw vtrs::RuntimeError("Unable to create Wayland surface.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
     }
 }
 
@@ -515,7 +869,15 @@ vtest::VikingRoom::VikingRoom(std::vector<const char*>& extensions) :
         m_swapImageViews{},
         m_gpu(VK_NULL_HANDLE),
         m_imageFormat(VK_FORMAT_UNDEFINED),
-        m_extend2D{} {
+        m_extend2D{},
+        m_pipelineLayout{},
+        m_renderPass{},
+        m_graphicsPipeline{},
+        m_commandPool{},
+        m_commandBuffer{},
+        m_rendererFinishedSem{},
+        m_imageAvailableSem{},
+        m_inFlightFence{} {
     initVulkan_(extensions);
     initGPU_();
 }
@@ -526,7 +888,7 @@ vtest::VikingRoom::VikingRoom(std::vector<const char*>& extensions) :
  * ========================================================================
  */
 
-vtest::VikingRoom *vtest::VikingRoom::factory(vtrs::XCBConnection* connection, uint32_t window) {
+vtest::VikingRoom* vtest::VikingRoom::factory(vtrs::XCBConnection* connection, uint32_t window) {
     if (!s_isInitialised) {
         enumerateExtensions_();
         s_isInitialised = true;
@@ -544,11 +906,44 @@ vtest::VikingRoom *vtest::VikingRoom::factory(vtrs::XCBConnection* connection, u
     return instance;
 }
 
+vtest::VikingRoom* vtest::VikingRoom::factory(vtrs::WLDisplay* display, vtrs::WLSurface* surface) {
+    if (!s_isInitialised) {
+        enumerateExtensions_();
+        s_isInitialised = true;
+    }
+
+    std::vector<const char*> extensions({
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
+    });
+
+    auto instance = new VikingRoom(extensions);
+    instance->prepareSurface_(display, surface);
+    instance->bootstrap_();
+
+    return instance;
+}
+
 /**
  * Cleans up.
  */
 vtest::VikingRoom::~VikingRoom() {
     vtrs::Logger::info("Cleaning up Vulkan application.");
+    vkDeviceWaitIdle(m_device);
+
+    vkDestroySemaphore(m_device, m_imageAvailableSem, nullptr);
+    vkDestroySemaphore(m_device, m_rendererFinishedSem, nullptr);
+    vkDestroyFence(m_device, m_inFlightFence, nullptr);
+
+    vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+
+    for (auto buffer : m_swapFramebuffers) {
+        vkDestroyFramebuffer(m_device, buffer, nullptr);
+    }
+
+    vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+    vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
+    vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
 
     for (auto image_view : m_swapImageViews) {
         vkDestroyImageView(m_device, image_view, nullptr);
@@ -560,6 +955,49 @@ vtest::VikingRoom::~VikingRoom() {
     vkDestroyInstance(m_instance, nullptr);
 
     vtrs::Logger::info("Done.");
+}
+
+void vtest::VikingRoom::drawFrame() {
+    vkWaitForFences(m_device, 1, &m_inFlightFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(m_device, 1, &m_inFlightFence);
+
+    uint32_t image_index;
+    vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAvailableSem, VK_NULL_HANDLE, &image_index);
+
+    vkResetCommandBuffer(m_commandBuffer, /*VkCommandBufferResetFlagBits*/ 0);
+    recordCommandBuffer_(m_commandBuffer, image_index);
+
+    VkSemaphore wait_semaphores[] = {m_imageAvailableSem};
+    VkSemaphore signal_semaphores[] = {m_rendererFinishedSem};
+    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+    VkSubmitInfo submitInfo {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = wait_semaphores,
+        .pWaitDstStageMask = wait_stages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &m_commandBuffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = signal_semaphores
+    };
+
+    auto result = vkQueueSubmit(m_queues.graphicsQueue, 1, &submitInfo, m_inFlightFence);
+    ASSERT_VK_RESULT(result, "Failed to submit draw command buffer.")
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signal_semaphores;
+
+    VkSwapchainKHR swapChains[] = {m_swapchain};
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+
+    presentInfo.pImageIndices = &image_index;
+
+    vkQueuePresentKHR(m_queues.surfaceQueue, &presentInfo);
 }
 
 /**
