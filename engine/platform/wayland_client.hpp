@@ -31,6 +31,9 @@
 
 namespace vtrs {
 
+typedef struct wl_display WLDisplay;
+typedef struct wl_surface WLSurface;
+
 struct wc_global_state {
     struct wl_shm* sharedmem = nullptr;
     struct wl_compositor* compositor = nullptr;
@@ -86,12 +89,19 @@ private:
 public:
     ~WaylandClient();
     static WaylandClient* factory();
+    static WLDisplay* getDisplay() {
+        return s_display;
+    }
     static int displayDispatch();
     static void shutdown();
 
     void createSurface(const std::string&);
     void render() const;
     [[nodiscard]] void* getRawPixels() const;
+
+    [[nodiscard]] WLSurface* getSurface() {
+        return m_surface;
+    }
 };
 
 } // namespace vtrs
