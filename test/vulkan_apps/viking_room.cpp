@@ -24,6 +24,7 @@
 #include <map>
 #include <set>
 #include <limits>
+#include <cmath>
 #include <algorithm>
 #include "except/runtime.hpp"
 #include "platform/logger.hpp"
@@ -32,9 +33,9 @@
 bool vtest::VikingRoom::s_isInitialised = false;
 std::vector<std::string> vtest::VikingRoom::s_iExtensions {};
 vtest::RGBAlpha vtest::VikingRoom::s_bgColor {
-    0.0f,
-    0.0f,
-    0.0f,
+    0.0001f,
+    0.0003f,
+    0.0006f,
     1.0f
 };
 
@@ -753,18 +754,25 @@ void vtest::VikingRoom::recordCommandBuffer_(VkCommandBuffer command_buffer, uin
     auto result = vkBeginCommandBuffer(m_commandBuffer, &begin_info);
     ASSERT_VK_RESULT(result, "Unable to start recording command buffer.")
 
-    VkClearValue clear_color = {{{s_bgColor.red, s_bgColor.green, s_bgColor.blue, s_bgColor.alpha}}};
+    VkClearValue clear_color = {{{
+        abs(s_bgColor.red),
+        abs(s_bgColor.green),
+        abs(s_bgColor.blue),
+        s_bgColor.alpha
+    }}};
 
-    s_bgColor.red = s_bgColor.red + 0.01;
-    s_bgColor.blue = s_bgColor.red + 0.02;
+    s_bgColor.red += 0.0001f;
+    s_bgColor.green += 0.0003f;
+    s_bgColor.blue += 0.0006f;
 
-    if (s_bgColor.red > 1.0f) {
-        s_bgColor.red = 0.0f;
-    }
+    if (s_bgColor.red >= 1.0f) s_bgColor.red = -0.0001f;
+    else if (s_bgColor.red <= 0) s_bgColor.red = 0.0001;
 
-    if (s_bgColor.blue > 1.0f) {
-        s_bgColor.blue = 0.0f;
-    }
+    if (s_bgColor.green >= 1.0f) s_bgColor.green = -0.0003f;
+    else if (s_bgColor.green <= 0) s_bgColor.green = 0.0003f;
+
+    if (s_bgColor.blue >= 1.0f) s_bgColor.blue = -0.0006f;
+    else if (s_bgColor.blue <= 0) s_bgColor.blue = 0.0006;
 
     VkRenderPassBeginInfo renderer_pass_info {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,

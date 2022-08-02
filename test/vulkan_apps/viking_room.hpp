@@ -38,9 +38,9 @@ if (result != VK_SUCCESS) { \
 namespace vtest {
 
 struct rgb_alpha {
-    float red = 0.0f;
-    float green = 0.0f;
-    float blue = 0.0f;
+    float red = 0.0001f;
+    float green = 0.0001f;
+    float blue = 0.0001f;
     float alpha = 1.0f;
 };
 
