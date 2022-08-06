@@ -21,13 +21,13 @@
 
 #pragma once
 
-#include "standard.hpp"
+#include "platform/standard.hpp"
 
 #ifdef VTRS_OS_TYPE_LINUX
 
 #include <list>
 #include <xcb/xcb.h>
-#include "ws_interface.hpp"
+#include "platform/ws_interface.hpp"
 
 namespace vtrs {
 

@@ -20,7 +20,7 @@
  */
 
 #include <cstdlib>
-#include "except.hpp"
+#include "platform/except.hpp"
 #include "xcb_client.hpp"
 
 /**
