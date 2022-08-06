@@ -1,5 +1,5 @@
 /**
- * test-main.cpp - Vitreous Engine [test-xcb-client]
+ * test-main.cpp - Test cases for Linux XCB client library.
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2021-present Ajay Sreedhar
@@ -22,7 +22,7 @@
 #include <cstdlib>
 
 #include "platform/logger.hpp"
-#include "platform/xcb_client.hpp"
+#include "platform/linux/xcb_client.hpp"
 
 int main() {
     vtrs::Logger::info("Test: XCB Client");
