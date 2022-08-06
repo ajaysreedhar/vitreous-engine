@@ -27,8 +27,7 @@
 #include <optional>
 #include <vulkan/vulkan.h>
 
-#include "platform/xcb_client.hpp"
-#include "platform/wayland_client.hpp"
+#include "platform/linux/xcb_client.hpp"
 
 #define ASSERT_VK_RESULT(result, message) \
 if (result != VK_SUCCESS) { \
@@ -36,15 +35,6 @@ if (result != VK_SUCCESS) { \
 }
 
 namespace vtest {
-
-struct rgb_alpha {
-    float red = 0.0001f;
-    float green = 0.0001f;
-    float blue = 0.0001f;
-    float alpha = 1.0f;
-};
-
-typedef struct rgb_alpha RGBAlpha;
 
 struct queue_family_indices {
     std::optional<uint32_t> graphicsIndex;
@@ -91,8 +81,6 @@ private:
      * @brief Holds supported instance extensions.
      */
     static std::vector<std::string> s_iExtensions;
-
-    static RGBAlpha s_bgColor;
 
     /**
      * @brief Holds supported GPU device extensions.
@@ -162,7 +150,6 @@ private:
     QueueFamilyIndices findQueueFamilies_();
 
     void prepareSurface_(vtrs::XCBConnection*, uint32_t);
-    void prepareSurface_(vtrs::WLDisplay*, vtrs::WLSurface*);
 
     void createImageViews_();
 
@@ -185,7 +172,6 @@ private:
 
 public:
     static VikingRoom* factory(vtrs::XCBConnection*, uint32_t);
-    static VikingRoom* factory(vtrs::WLDisplay*, vtrs::WLSurface*);
 
     static void printIExtensions();
 

@@ -32,12 +32,6 @@
 
 bool vtest::VikingRoom::s_isInitialised = false;
 std::vector<std::string> vtest::VikingRoom::s_iExtensions {};
-vtest::RGBAlpha vtest::VikingRoom::s_bgColor {
-    0.0001f,
-    0.0003f,
-    0.0006f,
-    1.0f
-};
 
 /**
  * Static utility function definitions.
@@ -549,7 +543,7 @@ void vtest::VikingRoom::createGraphicsPipeline_() {
 
     VkPipelineInputAssemblyStateCreateInfo assembly_info {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
         .primitiveRestartEnable = VK_FALSE
     };
 
@@ -754,25 +748,7 @@ void vtest::VikingRoom::recordCommandBuffer_(VkCommandBuffer command_buffer, uin
     auto result = vkBeginCommandBuffer(m_commandBuffer, &begin_info);
     ASSERT_VK_RESULT(result, "Unable to start recording command buffer.")
 
-    VkClearValue clear_color = {{{
-        abs(s_bgColor.red),
-        abs(s_bgColor.green),
-        abs(s_bgColor.blue),
-        s_bgColor.alpha
-    }}};
-
-    s_bgColor.red += 0.0001f;
-    s_bgColor.green += 0.0003f;
-    s_bgColor.blue += 0.0006f;
-
-    if (s_bgColor.red >= 1.0f) s_bgColor.red = -0.0001f;
-    else if (s_bgColor.red <= 0) s_bgColor.red = 0.0001;
-
-    if (s_bgColor.green >= 1.0f) s_bgColor.green = -0.0003f;
-    else if (s_bgColor.green <= 0) s_bgColor.green = 0.0003f;
-
-    if (s_bgColor.blue >= 1.0f) s_bgColor.blue = -0.0006f;
-    else if (s_bgColor.blue <= 0) s_bgColor.blue = 0.0006;
+    VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
 
     VkRenderPassBeginInfo renderer_pass_info {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -848,20 +824,6 @@ void vtest::VikingRoom::prepareSurface_(vtrs::XCBConnection* connection, uint32_
     }
 }
 
-void vtest::VikingRoom::prepareSurface_(vtrs::WLDisplay* display, vtrs::WLSurface* surface) {
-    VkWaylandSurfaceCreateInfoKHR surface_info {};
-    surface_info.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
-    surface_info.display = display;
-    surface_info.surface = surface;
-
-    auto result = vkCreateWaylandSurfaceKHR(m_instance, &surface_info, nullptr, &this->m_surface);
-
-    if (result != VK_SUCCESS) {
-        vkDestroyInstance(m_instance, nullptr);
-        throw vtrs::RuntimeError("Unable to create Wayland surface.", vtrs::RuntimeError::E_TYPE_VK_RESULT, result);
-    }
-}
-
 /**
  * Initialises the instance.
  *
@@ -909,24 +871,6 @@ vtest::VikingRoom* vtest::VikingRoom::factory(vtrs::XCBConnection* connection, u
 
     auto instance = new VikingRoom(extensions);
     instance->prepareSurface_(connection, window);
-    instance->bootstrap_();
-
-    return instance;
-}
-
-vtest::VikingRoom* vtest::VikingRoom::factory(vtrs::WLDisplay* display, vtrs::WLSurface* surface) {
-    if (!s_isInitialised) {
-        enumerateExtensions_();
-        s_isInitialised = true;
-    }
-
-    std::vector<const char*> extensions({
-        VK_KHR_SURFACE_EXTENSION_NAME,
-        VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME
-    });
-
-    auto instance = new VikingRoom(extensions);
-    instance->prepareSurface_(display, surface);
     instance->bootstrap_();
 
     return instance;
