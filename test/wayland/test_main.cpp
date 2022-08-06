@@ -2,7 +2,7 @@
 #include <thread>
 #include "platform/except.hpp"
 #include "platform/logger.hpp"
-#include "platform/wayland_client.hpp"
+#include "platform/linux/wayland_client.hpp"
 
 void threadRunner(uint32_t* pixels) {
     uint32_t color = 0x0000FF;
