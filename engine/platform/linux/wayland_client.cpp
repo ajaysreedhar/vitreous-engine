@@ -19,7 +19,7 @@
  * ========================================================================
  */
 
-#include "logger.hpp"
+#include "platform/logger.hpp"
 #include "wayland_client.hpp"
 
 #ifdef VTRS_OS_TYPE_LINUX
@@ -27,7 +27,7 @@
 #include <syscall.h>
 #include <sys/mman.h>
 #include <cstring>
-#include "except.hpp"
+#include "platform/except.hpp"
 
 bool vtrs::WaylandClient::s_isInitialised = false;
 struct wl_display* vtrs::WaylandClient::s_display = nullptr;

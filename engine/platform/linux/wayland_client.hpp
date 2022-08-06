@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "standard.hpp"
+#include "platform/standard.hpp"
 
 #ifdef VTRS_OS_TYPE_LINUX
 #define VTRS_MODE_DEBUG 1
