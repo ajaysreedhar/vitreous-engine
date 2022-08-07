@@ -1,3 +1,5 @@
+find_package(Vulkan REQUIRED FATAL_ERROR)
+
 set(BASEPATH "${CMAKE_SOURCE_DIR}/engine")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/dist")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/dist/lib")
@@ -34,6 +36,8 @@ target_include_directories(vtrs-linuxpf PUBLIC "${CMAKE_SOURCE_DIR}/lib" "${CMAK
 #
 # Renderer library build on top of Vulkan APIs.
 # =========================================================================
-add_library(vtrs-renderer SHARED renderer/instance_factory.cpp renderer/instance_factory.hpp)
-target_link_libraries(vtrs-renderer PUBLIC vtrs-platform)
-target_include_directories(vtrs-renderer PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+add_library(vtrs-renderer SHARED
+        renderer/except.hpp
+        renderer/renderer_context.cpp renderer/renderer_context.hpp)
+target_link_libraries(vtrs-renderer PUBLIC ${Vulkan_LIBRARIES} vtrs-platform)
+target_include_directories(vtrs-renderer PUBLIC ${Vulkan_INCLUDE_DIRS} "${CMAKE_CURRENT_SOURCE_DIR}")

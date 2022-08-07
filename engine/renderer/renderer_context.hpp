@@ -1,8 +1,8 @@
 /**
- * instance_factory.hpp - Vulkan instance factory for abstraction.
+ * renderer_context.hpp - Vulkan renderer context abstraction.
  * ------------------------------------------------------------------------
  *
- * Copyright (c) 2022 Ajay Sreedhar
+ * Copyright (c) 2021-present Ajay Sreedhar
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,37 +21,27 @@
 
 #pragma once
 
-#include <vector>
-#include <string>
+#include <vulkan/vulkan.h>
 
 namespace vtrs {
 
-class InstanceFactory {
+/**
+ * @brief Renderer context abstracts the Vulkan instance.
+ *
+ * This class wraps a VkInstance object.
+ *
+ * Generally, only one instance is required per application
+ * for their entire run.
+ */
+class RendererContext {
 
-private: // *** Private members *** //
-    static bool s_isInitialised;
+private:
+    static inline bool s_isInitialised = false;
+    static inline VkInstance s_instance {};
 
-    /**
-     * @brief Holds supported instance extensions.
-     */
-    static std::vector<std::string> s_iExtensions;
+public:
+    void initialise();
 
-    /**
-     * @brief Holds supported GPU device extensions.
-     */
-    std::vector<std::string> m_gExtensions {};
-
-    /**
-     * Initialises Vulkan instance.
-     *
-     * This method will set the m_instance member variable.
-     */
-    void initVulkan_();
-
-    InstanceFactory();
-
-public: // *** Public members *** //
-    static InstanceFactory* factory();
 };
 
 } // namespace vtrs
