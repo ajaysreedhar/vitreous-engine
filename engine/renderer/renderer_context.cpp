@@ -1,5 +1,5 @@
 /**
- * renderer_factory.cpp - Vulkan renderer context definitions.
+ * renderer_context.cpp - Vulkan renderer context definitions.
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2021-present Ajay Sreedhar
