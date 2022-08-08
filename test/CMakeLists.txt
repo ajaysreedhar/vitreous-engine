@@ -10,15 +10,10 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/dist/test")
 # Executable: triangle-test
 # Vitreous engine renderer test.
 # =========================================================================
-add_executable(triangle-test triangle/test_main.cpp)
+add_executable(renderer-test engine_test/renderer_test.cpp)
+target_link_libraries(renderer-test PRIVATE vtrs-platform vtrs-linuxpf vtrs-renderer)
+target_include_directories(renderer-test PRIVATE "${CMAKE_SOURCE_DIR}/engine")
 
-# ---
-# Executable: vulkan-test
-# Vulkan application to test graphics capabilities.
-# =========================================================================
-add_executable(vulkan-test vulkan_apps/viking_room.cpp vulkan_apps/viking_room.hpp vulkan_apps/test_main.cpp)
-target_link_libraries(vulkan-test PRIVATE ${Vulkan_LIBRARIES} vtrs-platform vtrs-linuxpf)
-target_include_directories(vulkan-test PRIVATE ${Vulkan_INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/engine")
 
 # ---
 # Executable: xcb-test
