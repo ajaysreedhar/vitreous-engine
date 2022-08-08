@@ -136,6 +136,15 @@ uint32_t vtrs::GPUDevice::getGPUScore() const {
     return m_gpuScore;
 }
 
+uint32_t vtrs::GPUDevice::getQueueFamilyIndex(vtrs::GPUDevice::QueueFamilyType type) const {
+    try {
+        return m_qFamilyIndices.at(type);
+
+    } catch (std::out_of_range&) {
+        throw RendererError("Queue family type not supported in current context.", vtrs::RendererError::E_TYPE_GENERAL);
+    }
+}
+
 void vtrs::GPUDevice::printInfo() {
     const char* type;
 
@@ -170,3 +179,4 @@ void vtrs::GPUDevice::printInfo() {
     vtrs::Logger::print("API Version:", m_properties->apiVersion);
     vtrs::Logger::print("");
 }
+

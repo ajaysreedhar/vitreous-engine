@@ -64,7 +64,7 @@ private:
     explicit GPUDevice(VkPhysicalDevice device);
 
 public:
-    enum QueueFamilyIndices : int {
+    enum QueueFamilyType : int {
         QUEUE_FAMILY_INDEX_GRAPHICS = 15,
         QUEUE_FAMILY_INDEX_COMPUTE,
         QUEUE_FAMILY_INDEX_TRANSFER,
@@ -95,6 +95,13 @@ public:
      * @return The GPU score.
      */
     [[nodiscard]] uint32_t getGPUScore() const;
+
+    /**
+     * @brief Returns the queue family index matched by requested type.
+     * @return The queue family index.
+     * @throws vtrs::RendererError Thrown if queue family type is nil.
+     */
+    [[nodiscard]] uint32_t getQueueFamilyIndex(QueueFamilyType) const;
 
     /**
      * @brief Prints the GPU information to the console.
