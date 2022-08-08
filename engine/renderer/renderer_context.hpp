@@ -21,7 +21,10 @@
 
 #pragma once
 
-#include <vulkan/vulkan.h>
+#include <vector>
+#include <map>
+#include "vulkan_api.hpp"
+#include "gpu_device.hpp"
 
 namespace vtrs {
 
@@ -38,10 +41,45 @@ class RendererContext {
 private:
     static inline bool s_isInitialised = false;
     static inline VkInstance s_instance {};
+    static inline std::map<uint32_t, GPUDevice*> s_gpuList {};
+
+    /**
+     * @brief Creates the Vulkan context.
+     */
+    static void initVulkan_(std::vector<const char*>&);
+
+    /**
+     * @brief Enumerates GPUs available in the system.
+     */
+    static void enumerateGPUs_();
 
 public:
-    void initialise();
 
+    /**
+     * @brief Initialises the renderer context.
+     * @throws RendererError Thrown if the context is already initialised.
+     *
+     * This method initialises the Vulkan instance, enumerates the list of
+     * available physical GPUs and their capabilities.
+     *
+     * Once called, the s_isInitialised member is set to true to prevent
+     * further initialisation. An exception is thrown if called again.
+     */
+    static void initialise();
+
+    /**
+     * @brief Destroys the renderer context.
+     * @throws RendererError Thrown if the context is not initialised.
+     *
+     * This method destroys the vulkan instance and releases memory.
+     */
+    static void destroy();
+
+    /**
+     * @brief Returns the enumerated list of GPUs.
+     * @return A vector containing the GPUDevice instances.
+     */
+    static std::vector<GPUDevice*> getGPUList();
 };
 
 } // namespace vtrs
