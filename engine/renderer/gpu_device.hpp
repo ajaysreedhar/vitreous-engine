@@ -20,6 +20,7 @@
  */
 
 #include <vector>
+#include <map>
 #include "vulkan_api.hpp"
 
 namespace vtrs {
@@ -38,6 +39,8 @@ private:
     VkPhysicalDeviceProperties* m_properties;
     VkPhysicalDeviceFeatures* m_features;
 
+    std::map<int, uint32_t> m_qFamilyIndices;
+
     /**
      * @brief Records the capabilities of the GPU.
      * @return A GPU score based on the capabilities.
@@ -48,12 +51,27 @@ private:
     uint32_t recordCapabilities_();
 
     /**
+     * @brief Finds queue families supported by this GPU.
+     *
+     * Maps queue family indices discovered in this GPU against their type.
+     */
+    void mapQueueFamilies_();
+
+    /**
      * @brief Initialises the instance with device handle and capabilities.
      * @param device A Vulkan physical device handle.
      */
     explicit GPUDevice(VkPhysicalDevice device);
 
 public:
+    enum QueueFamilyIndices : int {
+        QUEUE_FAMILY_INDEX_GRAPHICS = 15,
+        QUEUE_FAMILY_INDEX_COMPUTE,
+        QUEUE_FAMILY_INDEX_TRANSFER,
+        QUEUE_FAMILY_INDEX_SPARSE_B,
+        QUEUE_FAMILY_INDEX_PROTECTED
+    };
+
     /**
      * @brief Enumerates the list of GPUs available on the machine.
      * @throw vtrs::RendererException Thrown if the enumeration fails.
