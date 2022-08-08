@@ -34,5 +34,6 @@
 
 #else
 #error "Vitreous engine compiles only on Windows and Linux!"
+
 #endif // defined(WIN32) || defined(__linux__)
 
