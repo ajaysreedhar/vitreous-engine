@@ -22,9 +22,6 @@
 #include "renderer_context.hpp"
 #include "assert.hpp"
 
-/**
- * @brief Creates the Vulkan context.
- */
 void vtrs::RendererContext::initVulkan_(std::vector<const char*>& extensions) {
     VkApplicationInfo app_info {VK_STRUCTURE_TYPE_APPLICATION_INFO};
     app_info.pApplicationName = "Vitreous Renderer";
@@ -51,10 +48,6 @@ void vtrs::RendererContext::initVulkan_(std::vector<const char*>& extensions) {
     VTRS_ASSERT_VK_RESULT(result, "Unable to initialise renderer context.")
 }
 
-/**
- * @brief Enumerates GPUs available in the system.
- * @throws vtrs::RendererError Thrown if GPU enumeration fails.
- */
 void vtrs::RendererContext::enumerateGPUs_() {
     std::vector<GPUDevice*> devices = GPUDevice::enumerate(s_instance);
 
@@ -64,13 +57,6 @@ void vtrs::RendererContext::enumerateGPUs_() {
     }
 }
 
-/**
- * @brief Initialises the renderer context.
- * @throws RendererError Thrown if the context is already initialised.
- *
- * This method initialises the Vulkan instance, enumerates the list of
- * available physical GPUs and their capabilities.
- */
 void vtrs::RendererContext::initialise() {
     if (s_isInitialised) {
         throw RendererError("Renderer context is already initialised!", RendererError::E_TYPE_GENERAL);
@@ -87,12 +73,6 @@ void vtrs::RendererContext::initialise() {
     enumerateGPUs_();
 }
 
-/**
- * @brief Destroys the renderer context.
- * @throws RendererError Thrown if the context is not initialised.
- *
- * This method destroys the vulkan instance and releases memory.
- */
 void vtrs::RendererContext::destroy() {
     if (!s_isInitialised) {
         throw RendererError("Can not destroy the context without initialising!", RendererError::E_TYPE_GENERAL);
@@ -105,10 +85,6 @@ void vtrs::RendererContext::destroy() {
     vkDestroyInstance(s_instance, nullptr);
 }
 
-/**
- * @brief Returns the enumerated list of GPUs.
- * @return A vector containing the GPUDevice instances.
- */
 std::vector<vtrs::GPUDevice*> vtrs::RendererContext::getGPUList() {
     int index = 0;
     std::vector<vtrs::GPUDevice*> gpu_list(s_gpuList.size());

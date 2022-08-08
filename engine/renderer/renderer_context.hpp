@@ -31,10 +31,8 @@ namespace vtrs {
 /**
  * @brief Renderer context abstracts the Vulkan instance.
  *
- * This class wraps a VkInstance object.
- *
- * Generally, only one instance is required per application
- * for their entire run.
+ * This class wraps a VkInstance object. Generally, only one
+ * instance is required per application for their entire run.
  */
 class RendererContext {
 
