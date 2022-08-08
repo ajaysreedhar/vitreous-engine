@@ -23,11 +23,6 @@
 #include "platform/except.hpp"
 #include "xcb_client.hpp"
 
-/**
- * @brief Packs window event details from XCB key press event.
- * @param xcb_event Instance of XCB key press event.
- * @return Window event details.
- */
 vtrs::WSIWindowEvent vtrs::XCBClient::wsiWindowEvent_(xcb_key_press_event_t* xcb_event) {
     WSIWindowEvent wsi_event {};
     wsi_event.kind = WSIWindowEvent::KEY_PRESS;
@@ -37,11 +32,6 @@ vtrs::WSIWindowEvent vtrs::XCBClient::wsiWindowEvent_(xcb_key_press_event_t* xcb
     return wsi_event;
 }
 
-/**
- * @brief Packs window event details from XCB button press event.
- * @param xcb_event Instance of XCB key press event.
- * @return Window event details.
- */
 vtrs::WSIWindowEvent vtrs::XCBClient::wsiWindowEvent_(xcb_button_press_event_t* xcb_event) {
     WSIWindowEvent wsi_event {};
     wsi_event.kind = vtrs::WSIWindowEvent::BUTTON_PRESS;
@@ -50,11 +40,6 @@ vtrs::WSIWindowEvent vtrs::XCBClient::wsiWindowEvent_(xcb_button_press_event_t* 
     return wsi_event;
 }
 
-/**
- * @brief Packs window event details from XCB message event.
- * @param xcb_event Instance of XCB key press event.
- * @return Window event details.
- */
 vtrs::WSIWindowEvent vtrs::XCBClient::wsiWindowEvent_(xcb_client_message_event_t * xcb_event) {
     WSIWindowEvent wsi_event {};
 
@@ -72,12 +57,6 @@ vtrs::WSIWindowEvent vtrs::XCBClient::wsiWindowEvent_(xcb_client_message_event_t
     return wsi_event;
 }
 
-/**
- * @brief Initialises the instance.
- * @throw PlatformError If client initialisation fails.
- *
- * Connects to the display server and configures the screen.
- */
 vtrs::XCBClient::XCBClient() {
     m_WindowIds = new std::list<uint32_t>();
     m_connection = xcb_connect(nullptr, nullptr);
@@ -103,12 +82,6 @@ vtrs::XCBClient::XCBClient() {
     m_windowReply  = xcb_intern_atom_reply(m_connection, window_cookie, nullptr);
 }
 
-/**
- * @brief Cleans up when the client is destroyed.
- *
- * The destructor will iterate the window ids list and closes each window.
- * After closing the window, the xcb_disconnect function is invoked.
- */
 vtrs::XCBClient::~XCBClient() {
     for(uint32_t& m_WindowId : *m_WindowIds) {
         xcb_destroy_window(m_connection, m_WindowId);
@@ -117,11 +90,6 @@ vtrs::XCBClient::~XCBClient() {
     xcb_disconnect(m_connection);
 }
 
-/**
- * @brief Creates a new window of specified dimensions.
- * @param width Window width in pixels.
- * @param height Window height in pixels.
- */
 uint32_t vtrs::XCBClient::createWindow(int width, int height) {
     xcb_window_t window_id = xcb_generate_id(m_connection);
     uint32_t value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
@@ -148,12 +116,6 @@ uint32_t vtrs::XCBClient::createWindow(int width, int height) {
     return window_id;
 }
 
-/**
- * @brief Polls window events.
- * This function does not wait for events. If there are no pending events,
- * a WSIWindowEvent object with empty event kind is returned.
- * @return The WSIWindowEvent object.
- */
 vtrs::WSIWindowEvent vtrs::XCBClient::pollEvents() {
     xcb_generic_event_t* xcb_event = xcb_poll_for_event(m_connection);
     WSIWindowEvent wsi_event;
@@ -189,10 +151,6 @@ vtrs::WSIWindowEvent vtrs::XCBClient::pollEvents() {
     return wsi_event;
 }
 
-/**
- * @brief Returns the XCB connection.
- * @return XCB connection
- */
 vtrs::XCBConnection *vtrs::XCBClient::getConnection() {
     return m_connection;
 }

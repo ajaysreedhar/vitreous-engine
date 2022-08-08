@@ -122,13 +122,6 @@ void vtrs::WaylandClient::xdgSurfaceConfigCb_(void* data, struct xdg_surface* su
     wl_surface_commit(state->wlSurface);
 }
 
-/**
- * @brief Initialises the global state.
- * @throws vtrs::PlatformError If initialisation fails.
- *
- * This function will attempt to connect to the display,
- * obtain the registry and attach the registry listeners.
- */
 void vtrs::WaylandClient::initialise_() {
     s_display = wl_display_connect(nullptr);
 

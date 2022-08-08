@@ -21,13 +21,6 @@
 
 #include "runtime.hpp"
 
-/**
- * Defines a runtime exception.
- *
- * @param message The error message.
- * @param kind Error kind from {@link ErrorKind} enum.
- * @param code The error code, defaults to 0.
- */
 vtrs::RuntimeError::RuntimeError(const std::string& message, int kind, int code = 0) : std::runtime_error(message) {
     this->m_code = code;
     this->m_kind = kind;
@@ -35,20 +28,10 @@ vtrs::RuntimeError::RuntimeError(const std::string& message, int kind, int code 
 
 vtrs::RuntimeError::RuntimeError(const std::string& message, int kind): RuntimeError(message, kind, 0) {}
 
-/**
- * Returns the error code.
- *
- * @return The error code.
-*/
 int vtrs::RuntimeError::getCode() const {
     return this->m_code;
 }
 
-/**
- * Returns the error kind.
- *
- * @return The error kind.
-*/
 int vtrs::RuntimeError::getKind() const {
     return this->m_kind;
 }
