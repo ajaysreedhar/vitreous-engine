@@ -82,6 +82,7 @@ void vtrs::RendererContext::destroy() {
         delete gpu_pair.second;
     }
 
+    s_gpuList.clear();
     vkDestroyInstance(s_instance, nullptr);
 }
 
