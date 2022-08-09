@@ -78,6 +78,12 @@ public:
      * @return A vector containing the GPUDevice instances.
      */
     static std::vector<GPUDevice*> getGPUList();
+
+    /**
+     * @brief Returns the Global Vulkan instance handle.
+     * @return Vulkan instance handle.
+     */
+    static VkInstance vulkanInstance();
 };
 
 } // namespace vtrs

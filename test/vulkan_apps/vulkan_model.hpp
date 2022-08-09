@@ -1,5 +1,5 @@
 /**
- * vitreous_model.hpp - Vitreous model test application declaration.
+ * vulkan_model.hpp - Vitreous model test application declaration.
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2021-present Ajay Sreedhar
@@ -21,6 +21,28 @@
 
 #pragma once
 
+#include "renderer/renderer_context.hpp"
+
 namespace vtest {
+
+class VulkanModel {
+
+private:
+    VkPhysicalDevice s_gpu;
+
+public:
+    /**
+     * @brief Initialises the instance.
+     *
+     * This will also initialise a renderer context
+     * if not already initialised.
+     */
+    VulkanModel();
+
+    /**
+     * @brief Cleans up upon destruction of the object.
+     */
+    ~VulkanModel();
+};
 
 } // namespace vtest

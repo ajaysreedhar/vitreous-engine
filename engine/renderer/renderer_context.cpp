@@ -97,3 +97,11 @@ std::vector<vtrs::GPUDevice*> vtrs::RendererContext::getGPUList() {
 
     return gpu_list;
 }
+
+VkInstance vtrs::RendererContext::vulkanInstance() {
+    if (!s_isInitialised) {
+        throw RendererError("Can not provide the instance without initialising!", RendererError::E_TYPE_GENERAL);
+    }
+
+    return s_instance;
+}
