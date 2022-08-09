@@ -169,8 +169,8 @@ void vtrs::GPUDevice::printInfo() {
             type = "Unknown";
     }
 
-    vtrs::Logger::print("Enumerated GPU Information");
-    vtrs::Logger::print("**************************");
+    vtrs::Logger::print("GPU Information");
+    vtrs::Logger::print("***************");
     vtrs::Logger::print("Device Id:", m_properties->deviceID);
     vtrs::Logger::print("Vendor Id:", m_properties->vendorID);
     vtrs::Logger::print("Device Name:", m_properties->deviceName);
