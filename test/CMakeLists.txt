@@ -25,8 +25,9 @@ target_link_libraries(xcb-test PRIVATE vtrs-platform vtrs-linuxpf)
 # Executable: vulkan-test
 # Various test cases to test GPU capabilities with Vulkan APIs.
 # =========================================================================
-add_executable(vulkan-test vulkan_apps/vitreous_model.cpp vulkan_apps/vitreous_model.hpp vulkan_apps/test_main.cpp)
-target_include_directories(vulkan-test PRIVATE "${CMAKE_SOURCE_DIR}/engine")
+add_executable(vulkan-test vulkan_apps/vulkan_model.cpp vulkan_apps/vulkan_model.hpp vulkan_apps/test_main.cpp)
+target_link_libraries(vulkan-test PRIVATE ${Vulkan_LIBRARIES} vtrs-platform vtrs-linuxpf vtrs-renderer)
+target_include_directories(vulkan-test PRIVATE ${Vulkan_INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/engine")
 
 # ---
 # Executable: wayland-test
