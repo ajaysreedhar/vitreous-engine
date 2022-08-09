@@ -119,7 +119,7 @@ vtrs::GPUDevice::GPUDevice(VkPhysicalDevice device) {
 
 vtrs::GPUDevice::~GPUDevice() {
 #if (defined(VTRS_MODE_DEBUG) && VTRS_MODE_DEBUG == 1)
-    vtrs::Logger::info("Cleaning up GPU information", m_properties->deviceID, m_properties->deviceName);
+    vtrs::Logger::debug("Cleaning up GPU information", m_properties->deviceID, m_properties->deviceName);
 #endif
 
     free(m_properties);
