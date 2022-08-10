@@ -39,6 +39,7 @@ private:
     VkPhysicalDeviceProperties* m_properties;
     VkPhysicalDeviceFeatures* m_features;
 
+    uint32_t m_qFamilyCount = 0;
     std::map<int, uint32_t> m_qFamilyIndices;
 
     /**
@@ -85,6 +86,12 @@ public:
     ~GPUDevice();
 
     /**
+     * @brief Returns the Vulkan handle of the GPU.
+     * @return VkPhysicalDevice handle.
+     */
+    [[nodiscard]] VkPhysicalDevice getDeviceHandle() const;
+
+    /**
      * @brief Returns the id of the GPU represented by current object.
      * @return The device id.
      */
@@ -95,6 +102,12 @@ public:
      * @return The GPU score.
      */
     [[nodiscard]] uint32_t getGPUScore() const;
+
+    /**
+     * Returns the total number of queue families enumerated in the GPU.
+     * @return The number of queue families.
+     */
+    [[nodiscard]] uint32_t getQueueFamilyCount() const;
 
     /**
      * @brief Returns the queue family index matched by requested type.

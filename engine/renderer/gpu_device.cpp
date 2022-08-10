@@ -54,11 +54,11 @@ uint32_t vtrs::GPUDevice::recordCapabilities_() {
 }
 
 void vtrs::GPUDevice::mapQueueFamilies_() {
-    uint32_t family_count = 0, family_index = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(m_device, &family_count, nullptr);
+    uint32_t family_index = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(m_device, &m_qFamilyCount, nullptr);
 
-    std::vector<VkQueueFamilyProperties> family_list(family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(m_device, &family_count, family_list.data());
+    std::vector<VkQueueFamilyProperties> family_list(m_qFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(m_device, &m_qFamilyCount, family_list.data());
 
     for (auto& family : family_list) {
 
@@ -128,12 +128,20 @@ vtrs::GPUDevice::~GPUDevice() {
     m_qFamilyIndices.clear();
 }
 
+VkPhysicalDevice vtrs::GPUDevice::getDeviceHandle() const {
+    return m_device;
+}
+
 uint32_t vtrs::GPUDevice::getDeviceId() const {
     return m_properties->deviceID;
 }
 
 uint32_t vtrs::GPUDevice::getGPUScore() const {
     return m_gpuScore;
+}
+
+uint32_t vtrs::GPUDevice::getQueueFamilyCount() const {
+    return m_qFamilyCount;
 }
 
 uint32_t vtrs::GPUDevice::getQueueFamilyIndex(vtrs::GPUDevice::QueueFamilyType type) const {
@@ -179,4 +187,3 @@ void vtrs::GPUDevice::printInfo() {
     vtrs::Logger::print("API Version:", m_properties->apiVersion);
     vtrs::Logger::print("");
 }
-
