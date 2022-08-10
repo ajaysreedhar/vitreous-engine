@@ -64,7 +64,10 @@ void vtrs::RendererContext::initialise() {
 
     std::vector<const char*> extensions {
         VK_KHR_SURFACE_EXTENSION_NAME,
+
+#if defined(VTRS_OS_TYPE_LINUX) && VTRS_OS_TYPE_LINUX == 1
         VK_KHR_XCB_SURFACE_EXTENSION_NAME
+#endif
     };
 
     initVulkan_(extensions);
@@ -98,7 +101,7 @@ std::vector<vtrs::GPUDevice*> vtrs::RendererContext::getGPUList() {
     return gpu_list;
 }
 
-VkInstance vtrs::RendererContext::vulkanInstance() {
+VkInstance vtrs::RendererContext::getInstanceHandle() {
     if (!s_isInitialised) {
         throw RendererError("Can not provide the instance without initialising!", RendererError::E_TYPE_GENERAL);
     }

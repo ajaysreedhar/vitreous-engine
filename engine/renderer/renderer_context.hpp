@@ -83,7 +83,7 @@ public:
      * @brief Returns the Global Vulkan instance handle.
      * @return Vulkan instance handle.
      */
-    static VkInstance vulkanInstance();
+    static VkInstance getInstanceHandle();
 };
 
 } // namespace vtrs
