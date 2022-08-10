@@ -21,28 +21,86 @@
 
 #pragma once
 
+#include <optional>
+#include "platform/linux/xcb_client.hpp"
 #include "renderer/renderer_context.hpp"
 
 namespace vtest {
 
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> surfaceFamily;
+};
+
+/**
+ * @brief An application to test Vulkan support and rendering capabilities.
+ *
+ * This implementation is loosely dependent on the renderer sub-system.
+ * Most of the required objects are provided raw directly from Vulkan SDK.
+ */
 class VulkanModel {
 
 private:
-    VkPhysicalDevice s_gpu;
+    struct QueueFamilyIndices m_familyIndices {};
+    vtrs::GPUDevice* m_gpu;
 
-public:
+    VkDevice m_device = VK_NULL_HANDLE;
+    VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+
+    VkQueue m_surfaceQueue = VK_NULL_HANDLE;
+    VkQueue m_graphicsQueue = VK_NULL_HANDLE;
+
+    /**
+     * @brief Finds the discrete GPU from the enumerated list of GPUs.
+     * @return A handle to the discrete GPU.
+     */
+    static vtrs::GPUDevice* findDiscreteGPU_();
+
+    /**
+     * @brief Creates a XCB window surface.
+     *
+     * Note that this method should be called only is the os is Linux.
+     */
+    void createSurface_(vtrs::XCBConnection*, uint32_t);
+
+    /**
+     * @brief Creates logical device.
+     *
+     * his method will create logical device required for this application
+     * and assigns handles to surface queue and graphics queue members.
+     */
+    void createLogicalDevice_();
+
+    /**
+     * Bootstraps the application.
+     */
+    void bootstrap_();
+
     /**
      * @brief Initialises the instance.
+     * @param client An instance of XCB window client.
      *
      * This will also initialise a renderer context
-     * if not already initialised.
+     * if not already initialised. New objects can be
+     * created only by calling factory static method.
      */
     VulkanModel();
+
+public:
+    static VulkanModel* factory(vtrs::XCBClient*, uint32_t);
 
     /**
      * @brief Cleans up upon destruction of the object.
      */
     ~VulkanModel();
+
+    /**
+     * @brief Prints the selected GPU information.
+     *
+     * This method simply invokes the printInfo
+     * method in the selected GPU instance.
+     */
+    void printGPUInfo();
 };
 
 } // namespace vtest

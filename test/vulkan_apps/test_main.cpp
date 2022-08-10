@@ -19,6 +19,52 @@
  * ========================================================================
  */
 
-int main(int argc, char** argv) {
-    return 0;
+#include "platform/except.hpp"
+#include "platform/logger.hpp"
+#include "platform/linux/xcb_client.hpp"
+#include "vulkan_model.hpp"
+
+int testVulkanModel() {
+    vtrs::XCBClient* xcb_client;
+    vtest::VulkanModel* application;
+    uint32_t window_id;
+
+    try {
+        xcb_client = new vtrs::XCBClient();
+        window_id = xcb_client->createWindow(800, 600);
+        application = vtest::VulkanModel::factory(xcb_client, window_id);
+
+    } catch (vtrs::PlatformError& error) {
+        vtrs::Logger::fatal(error.what());
+        return EXIT_FAILURE;
+    }
+
+    application->printGPUInfo();
+
+    while (true) {
+        auto event = xcb_client->pollEvents();
+
+        if (event.kind == vtrs::WSIWindowEvent::EMPTY_EVENT) {
+            continue;
+        }
+
+        if (event.kind == vtrs::WSIWindowEvent::KEY_PRESS && event.eventDetail == 24) {
+            vtrs::Logger::info("User pressed Quit [Q] button!");
+            break;
+        }
+    }
+
+    delete xcb_client;
+    delete application;
+
+    return EXIT_SUCCESS;
+}
+
+int main() {
+    vtrs::RendererContext::initialise();
+
+    int status = testVulkanModel();
+
+    vtrs::RendererContext::destroy();
+    return status;
 }
