@@ -32,6 +32,12 @@ struct QueueFamilyIndices {
     std::optional<uint32_t> surfaceFamily;
 };
 
+struct SwapchainSupportBundle {
+    VkSurfaceCapabilitiesKHR surfaceCaps;
+    std::vector<VkSurfaceFormatKHR> surfaceFormats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
+
 /**
  * @brief An application to test Vulkan support and rendering capabilities.
  *
@@ -49,6 +55,12 @@ private:
 
     VkQueue m_surfaceQueue = VK_NULL_HANDLE;
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
+
+    VkSwapchainKHR m_swapchain = VK_NULL_HANDLE;
+    VkExtent2D m_swapExtend {};
+    VkFormat m_swapFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    std::vector<VkImage> m_swapImages;
+    std::vector<VkImageView> m_swapViews;
 
     /**
      * @brief Finds the discrete GPU from the enumerated list of GPUs.
@@ -70,6 +82,18 @@ private:
      * and assigns handles to surface queue and graphics queue members.
      */
     void createLogicalDevice_();
+
+    /**
+     * @brief Creates swapchain.
+     */
+    void createSwapchain_();
+
+    /**
+     * @brief Creates image views for every swapchain image.
+     */
+    void createImageViews_();
+
+    void setupGraphicsPipeline_();
 
     /**
      * Bootstraps the application.

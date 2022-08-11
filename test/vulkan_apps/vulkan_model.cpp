@@ -21,6 +21,8 @@
 
 #include <vector>
 #include <set>
+#include <cstring>
+#include <limits>
 #include "platform/logger.hpp"
 #include "platform/linux/xcb_client.hpp"
 #include "renderer/except.hpp"
@@ -50,7 +52,6 @@ void vtest::VulkanModel::createSurface_(vtrs::XCBConnection* connection, uint32_
 
 void vtest::VulkanModel::createLogicalDevice_() {
     float queue_priority = 1.0f;
-    VkPhysicalDeviceFeatures gpu_features {};
 
     std::vector<VkDeviceQueueCreateInfo> queue_info {};
     std::set<uint32_t> required_indices {m_familyIndices.graphicsFamily.value(), m_familyIndices.surfaceFamily.value()};
@@ -64,9 +65,15 @@ void vtest::VulkanModel::createLogicalDevice_() {
         queue_info.push_back(info);
     }
 
+    VkPhysicalDeviceFeatures gpu_features {};
+    std::vector<const char*> req_extensions;
+    req_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
     VkDeviceCreateInfo device_info {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     device_info.pQueueCreateInfos = queue_info.data();
     device_info.queueCreateInfoCount = queue_info.size();
+    device_info.ppEnabledExtensionNames = req_extensions.data();
+    device_info.enabledExtensionCount = req_extensions.size();
     device_info.pEnabledFeatures = &gpu_features;
 
     auto result = vkCreateDevice(m_gpu->getDeviceHandle(), &device_info, nullptr, &m_device);
@@ -74,6 +81,156 @@ void vtest::VulkanModel::createLogicalDevice_() {
 
     vkGetDeviceQueue(m_device, m_familyIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
     vkGetDeviceQueue(m_device, m_familyIndices.surfaceFamily.value(), 0, &m_surfaceQueue);
+}
+
+void vtest::VulkanModel::createSwapchain_() {
+    /* Checking if required extensions for swapchain are supported by the GPU. */
+    int extension_flag = 0;
+    std::vector<const char*> extension_names = m_gpu->getExtensionNames();
+
+    for(auto& name : extension_names) {
+        if (strcmp(name, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0) {
+            extension_flag++;
+            break;
+        }
+    }
+
+    extension_names.clear();
+
+    if (extension_flag <= 0) {
+        throw vtrs::RuntimeError("Selected GPU does not support required swapchain extension.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    /**
+     * Query swapchain support details before creating a swapchain.
+     * There are basically three kinds of properties we need to check:
+     * - Min/max number of images in swap chain,
+     *   min/max width and height of images.
+     * - Surface formats (pixel format, color space).
+     * -Available presentation modes.
+     */
+    uint32_t format_count; // Surface format count.
+    uint32_t mode_count;   // Present mode count.
+    struct SwapchainSupportBundle support_bundle;
+
+    auto result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_gpu->getDeviceHandle(), m_surface, &(support_bundle.surfaceCaps));
+    VTRS_ASSERT_VK_RESULT(result, "Unable to query surface capabilities of selected GPU.")
+
+    result = vkGetPhysicalDeviceSurfaceFormatsKHR(m_gpu->getDeviceHandle(), m_surface, &format_count, nullptr);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to query supported surface formats provided by the selected GPU.")
+
+    if (format_count <= 0) {
+        throw vtrs::RuntimeError("Selected GPU did not provide supported surface format count.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    support_bundle.surfaceFormats.resize(format_count);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_gpu->getDeviceHandle(), m_surface, &format_count, support_bundle.surfaceFormats.data());
+
+    result = vkGetPhysicalDeviceSurfacePresentModesKHR(m_gpu->getDeviceHandle(), m_surface, &mode_count, nullptr);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to query supported presentation modes provided by the selected GPU.")
+
+    if (mode_count <= 0) {
+        throw vtrs::RuntimeError("Selected GPU did not provide supported presentation mode count.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    support_bundle.presentModes.resize(mode_count);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_gpu->getDeviceHandle(), m_surface, &mode_count, support_bundle.presentModes.data());
+
+    VkSwapchainCreateInfoKHR swapchain_info {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+    swapchain_info.surface = m_surface;
+    swapchain_info.minImageCount = support_bundle.surfaceCaps.minImageCount + 1;
+
+    if (support_bundle.surfaceCaps.maxImageCount > 0 && swapchain_info.minImageCount > support_bundle.surfaceCaps.maxImageCount)
+        swapchain_info.minImageCount = support_bundle.surfaceCaps.maxImageCount;
+
+    swapchain_info.imageFormat = support_bundle.surfaceFormats.at(0).format;
+    swapchain_info.imageColorSpace = support_bundle.surfaceFormats.at(0).colorSpace;
+
+    for (auto& this_format : support_bundle.surfaceFormats) {
+        if (this_format.format == VK_FORMAT_B8G8R8A8_SRGB && this_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            swapchain_info.imageFormat = this_format.format;
+            swapchain_info.imageColorSpace = this_format.colorSpace;
+            break;
+        }
+    }
+
+    if (support_bundle.surfaceCaps.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+        swapchain_info.imageExtent = support_bundle.surfaceCaps.currentExtent;
+
+    } else {
+        VkExtent2D extend_2d;
+        extend_2d.width = 800;
+        extend_2d.height = 600;
+
+        swapchain_info.imageExtent = extend_2d;
+    }
+
+    /* The imageArrayLayers specifies the amount of layers each
+     * image consists of. This is always 1 unless we are developing
+     * a stereoscopic 3D application.  */
+    swapchain_info.imageArrayLayers = 1;
+    swapchain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    if (m_familyIndices.surfaceFamily == m_familyIndices.graphicsFamily) {
+        swapchain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        swapchain_info.queueFamilyIndexCount = 0;
+        swapchain_info.pQueueFamilyIndices = nullptr;
+
+    } else {
+        uint32_t family_indices[] = {m_familyIndices.surfaceFamily.value(), m_familyIndices.graphicsFamily.value()};
+
+        swapchain_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        swapchain_info.queueFamilyIndexCount = 2;
+        swapchain_info.pQueueFamilyIndices = family_indices;
+    }
+
+    swapchain_info.preTransform = support_bundle.surfaceCaps.currentTransform;
+    swapchain_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    swapchain_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    swapchain_info.clipped = VK_TRUE;
+    swapchain_info.oldSwapchain = VK_NULL_HANDLE;
+
+    result = vkCreateSwapchainKHR(m_device, &swapchain_info, nullptr, &m_swapchain);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create swapchain.")
+
+    m_swapExtend = swapchain_info.imageExtent;
+    m_swapFormat = swapchain_info.imageFormat;
+
+    uint32_t image_count;
+    result = vkGetSwapchainImagesKHR(m_device, m_swapchain, &image_count, nullptr);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to obtain swap chain images.")
+
+    m_swapImages.resize(image_count);
+    vkGetSwapchainImagesKHR(m_device, m_swapchain, &image_count, m_swapImages.data());
+
+    vtrs::Logger::debug("Retrieved", m_swapImages.size(), "swapchain images.");
+}
+
+void vtest::VulkanModel::createImageViews_() {
+    m_swapViews.resize(m_swapImages.size());
+
+    for (size_t index = 0; index < m_swapImages.size(); index++) {
+        VkImageViewCreateInfo image_view_info {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        image_view_info.image = m_swapImages.at(index);
+        image_view_info.format = m_swapFormat;
+        image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        image_view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        image_view_info.subresourceRange.baseMipLevel = 0;
+        image_view_info.subresourceRange.levelCount = 1;
+        image_view_info.subresourceRange.layerCount = 1;
+        image_view_info.subresourceRange.baseArrayLayer = 0;
+
+        auto result = vkCreateImageView(m_device, &image_view_info, nullptr, &(m_swapViews.at(index)));
+        VTRS_ASSERT_VK_RESULT(result, "Unable to create image view for image.")
+    }
+}
+
+void vtest::VulkanModel::setupGraphicsPipeline_() {
+
 }
 
 void vtest::VulkanModel::bootstrap_() {
@@ -90,6 +247,9 @@ void vtest::VulkanModel::bootstrap_() {
     }
 
     createLogicalDevice_();
+    createSwapchain_();
+    createImageViews_();
+    setupGraphicsPipeline_();
 }
 
 vtest::VulkanModel *vtest::VulkanModel::factory(vtrs::XCBClient* client, uint32_t window) {
@@ -113,6 +273,11 @@ vtest::VulkanModel::VulkanModel() {
 vtest::VulkanModel::~VulkanModel() {
     vtrs::Logger::info("Cleaning up Vulkan Model application.");
 
+    for(auto image_view : m_swapViews) {
+        vkDestroyImageView(m_device, image_view, nullptr);
+    }
+
+    vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
     vkDestroyDevice(m_device, nullptr);
     vkDestroySurfaceKHR(vtrs::RendererContext::getInstanceHandle(), m_surface, nullptr);
 
