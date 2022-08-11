@@ -81,6 +81,17 @@ void vtrs::GPUDevice::mapQueueFamilies_() {
     }
 }
 
+void vtrs::GPUDevice::queryDeviceExtensions_() {
+    uint32_t extension_count;
+
+    auto result = vkEnumerateDeviceExtensionProperties(m_device, nullptr, &extension_count, nullptr);
+    VTRS_ASSERT_VK_RESULT(result, std::string("Unable to query extensions supported by GPU .").append(m_properties->deviceName))
+
+    m_deviceExtensions.reserve(extension_count);
+    vkEnumerateDeviceExtensionProperties(m_device, nullptr, &extension_count, m_deviceExtensions.data());
+}
+
+
 std::vector<vtrs::GPUDevice*> vtrs::GPUDevice::enumerate(VkInstance instance) {
     uint32_t gpu_count;
 
@@ -101,6 +112,7 @@ std::vector<vtrs::GPUDevice*> vtrs::GPUDevice::enumerate(VkInstance instance) {
     for(auto gpu : candidates) {
         auto device = new GPUDevice(gpu);
         device->mapQueueFamilies_();
+        device->queryDeviceExtensions_();
 
         device_list.at(device_index) = device;
         device_index++;
@@ -153,6 +165,18 @@ uint32_t vtrs::GPUDevice::getQueueFamilyIndex(vtrs::GPUDevice::QueueFamilyType t
     }
 }
 
+std::vector<const char *> vtrs::GPUDevice::getExtensionNames() {
+    std::vector<const char *> names(m_deviceExtensions.size());
+
+    int index = 0;
+    for (auto& extension : m_deviceExtensions) {
+        names.at(index) = extension.extensionName;
+        index++;
+    }
+
+    return names;
+}
+
 void vtrs::GPUDevice::printInfo() {
     const char* type;
 
@@ -187,3 +211,4 @@ void vtrs::GPUDevice::printInfo() {
     vtrs::Logger::print("API Version:", m_properties->apiVersion);
     vtrs::Logger::print("");
 }
+

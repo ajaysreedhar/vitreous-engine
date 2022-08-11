@@ -21,6 +21,7 @@
 
 #include <vector>
 #include <map>
+#include <string>
 #include "vulkan_api.hpp"
 
 namespace vtrs {
@@ -41,6 +42,7 @@ private:
 
     uint32_t m_qFamilyCount = 0;
     std::map<int, uint32_t> m_qFamilyIndices;
+    std::vector<VkExtensionProperties> m_deviceExtensions;
 
     /**
      * @brief Records the capabilities of the GPU.
@@ -57,6 +59,11 @@ private:
      * Maps queue family indices discovered in this GPU against their type.
      */
     void mapQueueFamilies_();
+
+    /**
+     * @brief Populates the GPU extension properties.
+     */
+    void queryDeviceExtensions_();
 
     /**
      * @brief Initialises the instance with device handle and capabilities.
@@ -115,6 +122,12 @@ public:
      * @throws vtrs::RendererError Thrown if queue family type is nil.
      */
     [[nodiscard]] uint32_t getQueueFamilyIndex(QueueFamilyType) const;
+
+    /**
+     * @brief Returns the a list of extension names supported by this GPU.
+     * @return A vector containing extension names.
+     */
+    std::vector<const char*> getExtensionNames();
 
     /**
      * @brief Prints the GPU information to the console.
