@@ -87,7 +87,7 @@ void vtrs::GPUDevice::queryDeviceExtensions_() {
     auto result = vkEnumerateDeviceExtensionProperties(m_device, nullptr, &extension_count, nullptr);
     VTRS_ASSERT_VK_RESULT(result, std::string("Unable to query extensions supported by GPU .").append(m_properties->deviceName))
 
-    m_deviceExtensions.reserve(extension_count);
+    m_deviceExtensions.resize(extension_count);
     vkEnumerateDeviceExtensionProperties(m_device, nullptr, &extension_count, m_deviceExtensions.data());
 }
 
