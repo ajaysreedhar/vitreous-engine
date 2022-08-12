@@ -23,6 +23,7 @@
 #include <set>
 #include <cstring>
 #include <limits>
+#include <fstream>
 #include "platform/logger.hpp"
 #include "platform/linux/xcb_client.hpp"
 #include "renderer/except.hpp"
@@ -39,6 +40,25 @@ vtrs::GPUDevice *vtest::VulkanModel::findDiscreteGPU_() {
     }
 
     return device;
+}
+
+vtest::SPIRVBytes vtest::VulkanModel::readSPIRVShader(const std::string &path) {
+    std::ifstream shader_file(path, std::ios::ate | std::ios::binary);
+
+    if (!shader_file.is_open()) {
+        throw vtrs::RuntimeError("Unable to open shader file " + path, vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    vtest::SPIRVBytes spirv_bytes {nullptr,0};
+
+    spirv_bytes.size = shader_file.tellg();
+    spirv_bytes.data = new char[spirv_bytes.size]();
+
+    shader_file.seekg(0);
+    shader_file.read(spirv_bytes.data, static_cast<std::streamsize>(spirv_bytes.size));
+    shader_file.close();
+
+    return spirv_bytes;
 }
 
 void vtest::VulkanModel::createSurface_(vtrs::XCBConnection* connection, uint32_t window) {
@@ -229,8 +249,45 @@ void vtest::VulkanModel::createImageViews_() {
     }
 }
 
-void vtest::VulkanModel::setupGraphicsPipeline_() {
+VkShaderModule vtest::VulkanModel::newShaderModule(vtest::SPIRVBytes spirv) {
+    VkShaderModuleCreateInfo module_info {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+    module_info.codeSize = spirv.size;
+    module_info.pCode = reinterpret_cast<const uint32_t*>(spirv.data);
 
+    VkShaderModule shader_module;
+
+    auto result = vkCreateShaderModule(m_device, &module_info, nullptr, &shader_module);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create SPIR-V shader module.")
+
+    return shader_module;
+}
+
+
+void vtest::VulkanModel::setupGraphicsPipeline_() {
+    auto vertex_bytes = readSPIRVShader("shaders/triangle-vert.spv");
+    auto fragment_bytes = readSPIRVShader("shaders/triangle-frag.spv");
+
+    VkShaderModule vert_shader_module = newShaderModule(vertex_bytes);
+    VkShaderModule frag_shader_module = newShaderModule(fragment_bytes);
+
+    VkPipelineShaderStageCreateInfo vert_stage_info {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+    vert_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vert_stage_info.module = vert_shader_module;
+    vert_stage_info.pName = "main";
+
+    VkPipelineShaderStageCreateInfo frag_stage_info {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+    frag_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    frag_stage_info.module = frag_shader_module;
+    frag_stage_info.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shader_stages[] = {vert_stage_info, frag_stage_info};
+
+    vkDestroyShaderModule(m_device, vert_shader_module, nullptr);
+    vkDestroyShaderModule(m_device, frag_shader_module, nullptr);
+
+    // Remove this if validation layer complaints.
+    //free(vertex_bytes.data);
+    //free(fragment_bytes.data);
 }
 
 void vtest::VulkanModel::bootstrap_() {

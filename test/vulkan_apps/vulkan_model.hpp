@@ -38,6 +38,11 @@ struct SwapchainSupportBundle {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct SPIRVBytes {
+    char* data;
+    size_t size;
+};
+
 /**
  * @brief An application to test Vulkan support and rendering capabilities.
  *
@@ -69,6 +74,13 @@ private:
     static vtrs::GPUDevice* findDiscreteGPU_();
 
     /**
+     * @brief Reads characters from a compiled SPIR-V shader file.
+     * @param path The absolute path to the file.
+     * @return The bytes read.
+     */
+    static SPIRVBytes readSPIRVShader(const std::string& path);
+
+    /**
      * @brief Creates a XCB window surface.
      *
      * Note that this method should be called only is the os is Linux.
@@ -92,6 +104,8 @@ private:
      * @brief Creates image views for every swapchain image.
      */
     void createImageViews_();
+
+    VkShaderModule newShaderModule(SPIRVBytes);
 
     void setupGraphicsPipeline_();
 
