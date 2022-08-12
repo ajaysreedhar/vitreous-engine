@@ -78,7 +78,7 @@ private:
      * @param path The absolute path to the file.
      * @return The bytes read.
      */
-    static SPIRVBytes readSPIRVShader(const std::string& path);
+    static struct SPIRVBytes readSPIRVShader(const std::string& path);
 
     /**
      * @brief Creates a XCB window surface.
@@ -105,8 +105,15 @@ private:
      */
     void createImageViews_();
 
-    VkShaderModule newShaderModule(SPIRVBytes);
+    /**
+     * @brief Creates a new shader module from the SPIR-V bytes.
+     * @return Vulkan shader module.
+     */
+    VkShaderModule newShaderModule(struct SPIRVBytes);
 
+    /**
+     * @brief Sets up the graphics pipeline.
+     */
     void setupGraphicsPipeline_();
 
     /**

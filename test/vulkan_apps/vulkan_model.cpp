@@ -42,14 +42,14 @@ vtrs::GPUDevice *vtest::VulkanModel::findDiscreteGPU_() {
     return device;
 }
 
-vtest::SPIRVBytes vtest::VulkanModel::readSPIRVShader(const std::string &path) {
+struct vtest::SPIRVBytes vtest::VulkanModel::readSPIRVShader(const std::string &path) {
     std::ifstream shader_file(path, std::ios::ate | std::ios::binary);
 
     if (!shader_file.is_open()) {
         throw vtrs::RuntimeError("Unable to open shader file " + path, vtrs::RuntimeError::E_TYPE_GENERAL);
     }
 
-    vtest::SPIRVBytes spirv_bytes {nullptr,0};
+    struct vtest::SPIRVBytes spirv_bytes {nullptr,0};
 
     spirv_bytes.size = shader_file.tellg();
     spirv_bytes.data = new char[spirv_bytes.size]();
@@ -249,7 +249,7 @@ void vtest::VulkanModel::createImageViews_() {
     }
 }
 
-VkShaderModule vtest::VulkanModel::newShaderModule(vtest::SPIRVBytes spirv) {
+VkShaderModule vtest::VulkanModel::newShaderModule(struct vtest::SPIRVBytes spirv) {
     VkShaderModuleCreateInfo module_info {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     module_info.codeSize = spirv.size;
     module_info.pCode = reinterpret_cast<const uint32_t*>(spirv.data);
@@ -261,7 +261,6 @@ VkShaderModule vtest::VulkanModel::newShaderModule(vtest::SPIRVBytes spirv) {
 
     return shader_module;
 }
-
 
 void vtest::VulkanModel::setupGraphicsPipeline_() {
     auto vertex_bytes = readSPIRVShader("shaders/triangle-vert.spv");
