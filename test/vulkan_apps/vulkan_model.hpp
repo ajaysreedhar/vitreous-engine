@@ -51,7 +51,7 @@ struct SPIRVBytes {
  */
 class VulkanModel {
 
-private:
+private: // *** Private members *** //
     struct QueueFamilyIndices m_familyIndices {};
     vtrs::GPUDevice* m_gpu;
 
@@ -131,7 +131,7 @@ private:
      */
     VulkanModel();
 
-public:
+public: // *** Public members *** //
     static VulkanModel* factory(vtrs::XCBClient*, uint32_t);
 
     /**
