@@ -66,6 +66,9 @@ private: // *** Private members *** //
     VkFormat m_swapFormat = VK_FORMAT_B8G8R8A8_SRGB;
     std::vector<VkImage> m_swapImages;
     std::vector<VkImageView> m_swapViews;
+    VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
+    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
+    VkRenderPass m_renderPass = VK_NULL_HANDLE;
 
     /**
      * @brief Finds the discrete GPU from the enumerated list of GPUs.
@@ -110,6 +113,8 @@ private: // *** Private members *** //
      * @return Vulkan shader module.
      */
     VkShaderModule newShaderModule(struct SPIRVBytes);
+
+    void createRenderPass_();
 
     /**
      * @brief Sets up the graphics pipeline.
