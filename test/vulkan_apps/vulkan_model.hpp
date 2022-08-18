@@ -114,6 +114,9 @@ private: // *** Private members *** //
      */
     VkShaderModule newShaderModule(struct SPIRVBytes);
 
+    /**
+     * @brief Creates render pass.
+     */
     void createRenderPass_();
 
     /**
