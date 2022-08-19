@@ -27,16 +27,20 @@ namespace vtrs {
 
 struct wsi_window_event {
     enum EventKind: unsigned int {
-        KEY_PRESS = 10,
+        EMPTY_EVENT = 10,
+        KEY_PRESS,
         BUTTON_PRESS,
         CLOSE_BUTTON_PRESS,
-        EMPTY_EVENT
+        WINDOW_EXPOSE
     };
 
     unsigned int kind = EMPTY_EVENT;
 
     uint32_t eventWindow = -468;
     uint32_t eventDetail = -468;
+
+    unsigned int width = 0;
+    unsigned int height = 0;
 };
 
 typedef struct wsi_window_event WSIWindowEvent;
