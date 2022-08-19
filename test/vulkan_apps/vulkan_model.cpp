@@ -222,8 +222,6 @@ void vtest::VulkanModel::createSwapchain_() {
 
     m_swapImages.resize(image_count);
     vkGetSwapchainImagesKHR(m_device, m_swapchain, &image_count, m_swapImages.data());
-
-    vtrs::Logger::debug("Retrieved", m_swapImages.size(), "swapchain images.");
 }
 
 void vtest::VulkanModel::createImageViews_() {
@@ -264,7 +262,7 @@ VkShaderModule vtest::VulkanModel::newShaderModule(struct vtest::SPIRVBytes spir
 
 void vtest::VulkanModel::createRenderPass_() {
     VkAttachmentDescription color_attachment {
-        0x0,
+        VK_ATTACHMENT_DESCRIPTION_MAY_ALIAS_BIT,
         m_swapFormat,
         VK_SAMPLE_COUNT_1_BIT,
         VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -282,11 +280,21 @@ void vtest::VulkanModel::createRenderPass_() {
     subpass_desc.colorAttachmentCount = 1;
     subpass_desc.pColorAttachments = &attachment_ref;
 
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
     VkRenderPassCreateInfo render_pass_info {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
     render_pass_info.attachmentCount = 1;
     render_pass_info.pAttachments = &color_attachment;
     render_pass_info.subpassCount = 1;
     render_pass_info.pSubpasses = &subpass_desc;
+    render_pass_info.dependencyCount = 1;
+    render_pass_info.pDependencies = &dependency;
 
     auto result = vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_renderPass);
     VTRS_ASSERT_VK_RESULT(result, "Unable to create render pass.")
@@ -312,8 +320,8 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
     VkPipelineShaderStageCreateInfo shader_stages[] = {vert_stage_info, frag_stage_info};
 
     std::vector<VkDynamicState> dynamic_state_list = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
     };
 
     VkPipelineDynamicStateCreateInfo dynamic_state_info {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
@@ -322,9 +330,7 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
 
     VkPipelineVertexInputStateCreateInfo vertex_input_info {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
     vertex_input_info.vertexBindingDescriptionCount = 0;
-    vertex_input_info.pVertexBindingDescriptions = nullptr; // Optional
     vertex_input_info.vertexAttributeDescriptionCount = 0;
-    vertex_input_info.pVertexAttributeDescriptions = nullptr; // Optional
 
     VkPipelineInputAssemblyStateCreateInfo vertex_assembly_info {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
     vertex_assembly_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -352,17 +358,10 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
     rasterizer_info.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizer_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer_info.depthBiasEnable = VK_FALSE;
-    rasterizer_info.depthBiasConstantFactor = 0.0f; // Optional
-    rasterizer_info.depthBiasClamp = 0.0f; // Optional
-    rasterizer_info.depthBiasSlopeFactor = 0.0f; // Optional
 
     VkPipelineMultisampleStateCreateInfo multisample_info {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     multisample_info.sampleShadingEnable = VK_FALSE;
     multisample_info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisample_info.minSampleShading = 1.0f; // Optional
-    multisample_info.pSampleMask = nullptr; // Optional
-    multisample_info.alphaToCoverageEnable = VK_FALSE; // Optional
-    multisample_info.alphaToOneEnable = VK_FALSE; // Optional
 
     VkPipelineColorBlendAttachmentState color_blend_attachment {
         VK_TRUE,
@@ -371,7 +370,8 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
         VK_BLEND_OP_ADD,
         VK_BLEND_FACTOR_ONE,
         VK_BLEND_FACTOR_ZERO,
-        VK_BLEND_OP_ADD
+        VK_BLEND_OP_ADD,
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
     };
 
     VkPipelineColorBlendStateCreateInfo color_blend_info {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
@@ -415,11 +415,100 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
 
     vkDestroyShaderModule(m_device, vert_shader_module, nullptr);
     vkDestroyShaderModule(m_device, frag_shader_module, nullptr);
+}
 
-    // Remove this if validation layer complaints.
-    free(vertex_bytes.data);
-    free(fragment_bytes.data);
+void vtest::VulkanModel::createFramebuffers_() {
+    m_swapFramebuffers.resize(m_swapViews.size());
 
+    VkResult result;
+    for (size_t index = 0; index < m_swapViews.size(); index++) {
+        VkImageView attachments[] = { m_swapViews.at(index) };
+
+        VkFramebufferCreateInfo framebuffer_info {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+        framebuffer_info.renderPass = m_renderPass;
+        framebuffer_info.attachmentCount = 1;
+        framebuffer_info.pAttachments = attachments;
+        framebuffer_info.width = m_swapExtend.width;
+        framebuffer_info.height = m_swapExtend.height;
+        framebuffer_info.layers = 1;
+
+        result = vkCreateFramebuffer(m_device, &framebuffer_info, nullptr, &(m_swapFramebuffers.at(index)));
+        VTRS_ASSERT_VK_RESULT(result, "Unable to create frame buffer")
+    }
+}
+
+void vtest::VulkanModel::createCommandPool_() {
+    VkCommandPoolCreateInfo pool_info {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    pool_info.queueFamilyIndex = m_familyIndices.graphicsFamily.value();
+
+    auto result = vkCreateCommandPool(m_device, &pool_info, nullptr, &m_commandPool);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create command pool.")
+}
+
+void vtest::VulkanModel::allocateCommandBuffers_() {
+    VkCommandBufferAllocateInfo buffer_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    buffer_info.commandPool = m_commandPool;
+    buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    buffer_info.commandBufferCount = m_commandBuffers.size();
+
+    auto result = vkAllocateCommandBuffers(m_device, &buffer_info, m_commandBuffers.data());
+    VTRS_ASSERT_VK_RESULT(result, "Unable to allocate command buffers.")
+}
+
+void vtest::VulkanModel::recordCommands_(VkCommandBuffer buffer, uint32_t image_index) {
+    VkCommandBufferBeginInfo command_buffer_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+
+    auto result = vkBeginCommandBuffer(buffer, &command_buffer_info);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to start recording command buffer.")
+
+    VkClearValue clear_colour {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+
+    VkRenderPassBeginInfo render_pass_info {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+    render_pass_info.renderPass = m_renderPass;
+    render_pass_info.framebuffer = m_swapFramebuffers.at(image_index);
+    render_pass_info.renderArea.offset = {0, 0};
+    render_pass_info.renderArea.extent = m_swapExtend;
+    render_pass_info.clearValueCount = 1;
+    render_pass_info.pClearValues = &clear_colour;
+
+    vkCmdBeginRenderPass(buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
+
+    VkViewport viewport {0.0f, 0.0f};
+    viewport.width = static_cast<float>(m_swapExtend.width);
+    viewport.height = static_cast<float>(m_swapExtend.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    vkCmdSetViewport(buffer, 0, 1, &viewport);
+
+    VkRect2D scissor{{ 0, 0 }, m_swapExtend};
+    vkCmdSetScissor(buffer, 0, 1, &scissor);
+
+    vkCmdDraw(buffer, 3, 1, 0, 0);
+    vkCmdEndRenderPass(buffer);
+
+    result = vkEndCommandBuffer(buffer);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to stop recording command buffer.")
+}
+
+void vtest::VulkanModel::createSyncObjects_() {
+    VkSemaphoreCreateInfo semaphore_info {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+
+    VkFenceCreateInfo fence_info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    for (size_t index = 0; index < VTEST_MAX_FRAMES_IN_FLIGHT; index++) {
+        auto result = vkCreateSemaphore(m_device, &semaphore_info, nullptr, &(m_syncObjects.imageAvailableSem.at(index)));
+        VTRS_ASSERT_VK_RESULT(result, "Unable to obtain image synchronization semaphore.")
+
+        result = vkCreateSemaphore(m_device, &semaphore_info, nullptr, &(m_syncObjects.renderFinishedSem.at(index)));
+        VTRS_ASSERT_VK_RESULT(result, "Unable to obtain renderer synchronization semaphore.")
+
+        result = vkCreateFence(m_device, &fence_info, nullptr, &(m_syncObjects.inFlightFence.at(index)));
+        VTRS_ASSERT_VK_RESULT(result, "Unable to obtain in-flight fence.")
+    }
 }
 
 void vtest::VulkanModel::bootstrap_() {
@@ -440,11 +529,15 @@ void vtest::VulkanModel::bootstrap_() {
     createImageViews_();
     createRenderPass_();
     setupGraphicsPipeline_();
+    createFramebuffers_();
+    createCommandPool_();
+    allocateCommandBuffers_();
+    createSyncObjects_();
 }
 
-vtest::VulkanModel *vtest::VulkanModel::factory(vtrs::XCBClient* client, uint32_t window) {
+vtest::VulkanModel *vtest::VulkanModel::factory(vtrs::XCBClient* client, vtrs::XCBWindow window) {
     auto application = new VulkanModel();
-    application->createSurface_(client->getConnection(), window);
+    application->createSurface_(client->getConnection(), window.identifier);
     application->bootstrap_();
 
     return application;
@@ -458,14 +551,32 @@ vtest::VulkanModel::VulkanModel() {
     } catch (vtrs::RendererError&) {}
 
     m_gpu = findDiscreteGPU_();
+
+    m_commandBuffers.resize(VTEST_MAX_FRAMES_IN_FLIGHT);
+
+    m_syncObjects.imageAvailableSem.resize(VTEST_MAX_FRAMES_IN_FLIGHT);
+    m_syncObjects.renderFinishedSem.resize(VTEST_MAX_FRAMES_IN_FLIGHT);
+    m_syncObjects.inFlightFence.resize(VTEST_MAX_FRAMES_IN_FLIGHT);
 }
 
 vtest::VulkanModel::~VulkanModel() {
     vtrs::Logger::info("Cleaning up Vulkan Model application.");
 
+    for (size_t index = 0; index < VTEST_MAX_FRAMES_IN_FLIGHT; index++) {
+        vkDestroySemaphore(m_device, m_syncObjects.imageAvailableSem.at(index), nullptr);
+        vkDestroySemaphore(m_device, m_syncObjects.renderFinishedSem.at(index), nullptr);
+        vkDestroyFence(m_device, m_syncObjects.inFlightFence.at(index), nullptr);
+    }
+
+    vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+
+    for (auto framebuffer : m_swapFramebuffers) {
+        vkDestroyFramebuffer(m_device, framebuffer, nullptr);
+    }
+
+    vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
     vkDestroyRenderPass(m_device, m_renderPass, nullptr);
-    vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
 
     for(auto image_view : m_swapViews) {
         vkDestroyImageView(m_device, image_view, nullptr);
@@ -475,9 +586,94 @@ vtest::VulkanModel::~VulkanModel() {
     vkDestroyDevice(m_device, nullptr);
     vkDestroySurfaceKHR(vtrs::RendererContext::getInstanceHandle(), m_surface, nullptr);
 
+    m_syncObjects.imageAvailableSem.clear();
+    m_syncObjects.renderFinishedSem.clear();
+    m_syncObjects.inFlightFence.clear();
+
+    m_swapViews.clear();
+    m_swapImages.clear();
+    m_swapFramebuffers.clear();
+    m_commandBuffers.clear();
+
     m_gpu = nullptr;
+}
+
+bool vtest::VulkanModel::drawFrame() {
+    vkWaitForFences(m_device, 1, &(m_syncObjects.inFlightFence.at(m_currentFrame)), VK_TRUE, UINT64_MAX);
+
+    uint32_t image_index;
+    auto result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_syncObjects.imageAvailableSem.at(m_currentFrame), VK_NULL_HANDLE, &image_index);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        rebuildSwapchain();
+        return false;
+    }
+
+    VTRS_ASSERT_VK_RESULT(result, "Unable to obtain next image from swapchain")
+
+    vkResetFences(m_device, 1, &(m_syncObjects.inFlightFence.at(m_currentFrame)));
+
+    vkResetCommandBuffer(m_commandBuffers.at(m_currentFrame), /*VkCommandBufferResetFlagBits*/ 0);
+    recordCommands_(m_commandBuffers.at(m_currentFrame), image_index);
+
+    VkSubmitInfo submit_info {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+
+    VkSemaphore wait_semaphores[] = {m_syncObjects.imageAvailableSem.at(m_currentFrame)};
+    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores = wait_semaphores;
+    submit_info.pWaitDstStageMask = wait_stages;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &m_commandBuffers.at(m_currentFrame);
+
+    VkSemaphore signal_semaphores[] = {m_syncObjects.renderFinishedSem.at(m_currentFrame)};
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = signal_semaphores;
+
+    result = vkQueueSubmit(m_graphicsQueue, 1, &submit_info, m_syncObjects.inFlightFence.at(m_currentFrame));
+    VTRS_ASSERT_VK_RESULT(result, "Failed to submit command buffer to queue.")
+
+    VkPresentInfoKHR present_info {VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = signal_semaphores;
+
+    VkSwapchainKHR swapchains[] = {m_swapchain};
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = swapchains;
+    present_info.pImageIndices = &image_index;
+
+    vkQueuePresentKHR(m_surfaceQueue, &present_info);
+
+    m_currentFrame = (m_currentFrame + 1) % VTEST_MAX_FRAMES_IN_FLIGHT;
+    return true;
 }
 
 void vtest::VulkanModel::printGPUInfo() {
     m_gpu->printInfo();
+}
+
+void vtest::VulkanModel::waitIdle() {
+    vkDeviceWaitIdle(m_device);
+}
+
+void vtest::VulkanModel::rebuildSwapchain() {
+    if (m_swapchain == VK_NULL_HANDLE) {
+        throw vtrs::RuntimeError("Swapchain should be built first.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    waitIdle();
+
+    for (auto buffer : m_swapFramebuffers) {
+        vkDestroyFramebuffer(m_device, buffer, nullptr);
+    }
+
+    for(auto image_view : m_swapViews) {
+        vkDestroyImageView(m_device, image_view, nullptr);
+    }
+
+    vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+
+    createSwapchain_();
+    createImageViews_();
+    createFramebuffers_();
 }

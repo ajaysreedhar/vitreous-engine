@@ -25,6 +25,8 @@
 #include "platform/linux/xcb_client.hpp"
 #include "renderer/renderer_context.hpp"
 
+#define VTEST_MAX_FRAMES_IN_FLIGHT 2
+
 namespace vtest {
 
 struct QueueFamilyIndices {
@@ -41,6 +43,12 @@ struct SwapchainSupportBundle {
 struct SPIRVBytes {
     char* data;
     size_t size;
+};
+
+struct SyncObjectBundle {
+    std::vector<VkSemaphore> imageAvailableSem;
+    std::vector<VkSemaphore> renderFinishedSem;
+    std::vector <VkFence> inFlightFence;
 };
 
 /**
@@ -69,6 +77,16 @@ private: // *** Private members *** //
     VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkRenderPass m_renderPass = VK_NULL_HANDLE;
+
+    VkCommandPool m_commandPool = VK_NULL_HANDLE;
+
+    std::vector<VkCommandBuffer> m_commandBuffers;
+
+    std::vector<VkFramebuffer> m_swapFramebuffers;
+
+    struct SyncObjectBundle m_syncObjects {};
+
+    unsigned int m_currentFrame = 0;
 
     /**
      * @brief Finds the discrete GPU from the enumerated list of GPUs.
@@ -124,6 +142,24 @@ private: // *** Private members *** //
      */
     void setupGraphicsPipeline_();
 
+    void createFramebuffers_();
+
+    void createCommandPool_();
+
+    /**
+     * @brief Allocates command buffers for the frames in flight.
+     */
+    void allocateCommandBuffers_();
+
+    void recordCommands_(VkCommandBuffer, uint32_t);
+
+    /**
+     * @brief Creates synchronization objects and stores them as a bundle.
+     *
+     * This method will create semaphores and fences for each frame.
+     */
+    void createSyncObjects_();
+
     /**
      * Bootstraps the application.
      */
@@ -132,6 +168,7 @@ private: // *** Private members *** //
     /**
      * @brief Initialises the instance.
      * @param client An instance of XCB window client.
+     * @param window The window on which surface needs to be created.
      *
      * This will also initialise a renderer context
      * if not already initialised. New objects can be
@@ -140,12 +177,18 @@ private: // *** Private members *** //
     VulkanModel();
 
 public: // *** Public members *** //
-    static VulkanModel* factory(vtrs::XCBClient*, uint32_t);
+    static VulkanModel* factory(vtrs::XCBClient*, vtrs::XCBWindow);
 
     /**
      * @brief Cleans up upon destruction of the object.
      */
     ~VulkanModel();
+
+    bool drawFrame();
+
+    void waitIdle();
+
+    void rebuildSwapchain();
 
     /**
      * @brief Prints the selected GPU information.

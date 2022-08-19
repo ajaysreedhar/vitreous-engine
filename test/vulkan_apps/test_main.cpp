@@ -27,12 +27,12 @@
 int testVulkanModel() {
     vtrs::XCBClient* xcb_client;
     vtest::VulkanModel* application;
-    uint32_t window_id;
+    vtrs::XCBWindow window;
 
     try {
         xcb_client = new vtrs::XCBClient();
-        window_id = xcb_client->createWindow(800, 600);
-        application = vtest::VulkanModel::factory(xcb_client, window_id);
+        window = xcb_client->createWindow(800, 600);
+        application = vtest::VulkanModel::factory(xcb_client, window);
 
     } catch (vtrs::PlatformError& error) {
         vtrs::Logger::fatal(error.what());
@@ -44,9 +44,12 @@ int testVulkanModel() {
     while (true) {
         auto event = xcb_client->pollEvents();
 
-        if (event.kind == vtrs::WSIWindowEvent::EMPTY_EVENT) {
+        if (event.kind == vtrs::WSIWindowEvent::WINDOW_EXPOSE) {
+            application->rebuildSwapchain();
             continue;
         }
+
+        application->drawFrame();
 
         if (event.kind == vtrs::WSIWindowEvent::KEY_PRESS && event.eventDetail == 24) {
             vtrs::Logger::info("User pressed Quit [Q] button!");
@@ -54,8 +57,10 @@ int testVulkanModel() {
         }
     }
 
-    delete xcb_client;
+    application->waitIdle();
+
     delete application;
+    delete xcb_client;
 
     return EXIT_SUCCESS;
 }
