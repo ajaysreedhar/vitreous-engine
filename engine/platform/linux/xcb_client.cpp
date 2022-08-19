@@ -60,7 +60,7 @@ vtrs::WSIWindowEvent vtrs::XCBClient::packWindowEvent_(xcb_client_message_event_
 
 vtrs::WSIWindowEvent vtrs::XCBClient::packWindowEvent_(xcb_expose_event_t* xcb_event) {
     WSIWindowEvent wsi_event {};
-    wsi_event.kind = xcb_event->response_type;
+    wsi_event.kind = WSIWindowEvent::WINDOW_EXPOSE;
     wsi_event.eventWindow = xcb_event->window;
 
     wsi_event.width = xcb_event->width;
