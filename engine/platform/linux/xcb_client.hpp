@@ -25,13 +25,20 @@
 
 #ifdef VTRS_OS_TYPE_LINUX
 
-#include <list>
+#include <map>
 #include <xcb/xcb.h>
 #include "platform/ws_interface.hpp"
 
 namespace vtrs {
 
+struct xcb_client_window {
+    xcb_window_t identifier = 0;
+    unsigned int width = 0;
+    unsigned int height = 0;
+};
+
 typedef struct xcb_connection_t XCBConnection;
+typedef struct xcb_client_window XCBWindow;
 
 class XCBClient {
 
@@ -42,28 +49,30 @@ private: // *** Private members *** //
 
     xcb_intern_atom_reply_t* m_protocolReply;
     xcb_intern_atom_reply_t* m_windowReply;
-    std::list<uint32_t>* m_WindowIds;
+    std::map<xcb_window_t, XCBWindow>* m_windows;
 
     /**
      * @brief Packs window event details from XCB key press event.
      * @param xcb_event Instance of XCB key press event.
      * @return window event details.
      */
-    static vtrs::WSIWindowEvent wsiWindowEvent_(xcb_key_press_event_t*);
+    static vtrs::WSIWindowEvent packWindowEvent_(xcb_key_press_event_t*);
 
     /**
      * @brief Packs window event details from XCB button press event.
      * @param xcb_event Instance of XCB key press event.
      * @return window event details.
      */
-    static WSIWindowEvent wsiWindowEvent_(xcb_button_press_event_t*);
+    static WSIWindowEvent packWindowEvent_(xcb_button_press_event_t*);
 
     /**
      * @brief Packs window event details from XCB message event.
      * @param xcb_event Instance of XCB key press event.
      * @return window event details.
      */
-    static WSIWindowEvent wsiWindowEvent_(xcb_client_message_event_t*);
+    static WSIWindowEvent packWindowEvent_(xcb_client_message_event_t*);
+
+    static WSIWindowEvent packWindowEvent_(xcb_expose_event_t*);
 
 public: // *** Public members *** //
 
@@ -86,8 +95,9 @@ public: // *** Public members *** //
      * @brief Creates a new window of specified dimensions.
      * @param width Window width in pixels.
      * @param height Window height in pixels.
+     * @return Struct containing window information.
      */
-    uint32_t createWindow(int, int);
+    XCBWindow createWindow(unsigned int, unsigned int);
 
     /**
      * @brief Polls window events.
