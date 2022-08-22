@@ -22,6 +22,7 @@
 #pragma once
 
 #include <optional>
+#include <array>
 #include "platform/linux/xcb_client.hpp"
 #include "renderer/renderer_context.hpp"
 
@@ -51,6 +52,14 @@ struct SyncObjectBundle {
     std::vector <VkFence> inFlightFence;
 };
 
+struct Vertex {
+    float coordinate[2];
+    float rgbColor[3];
+
+    static VkVertexInputBindingDescription getInputBindingDescription();
+    static std::array<VkVertexInputAttributeDescription, 2> getInputAttributeDescription();
+};
+
 /**
  * @brief An application to test Vulkan support and rendering capabilities.
  *
@@ -60,6 +69,8 @@ struct SyncObjectBundle {
 class VulkanModel {
 
 private: // *** Private members *** //
+    static std::vector<Vertex> s_vertices;
+
     struct QueueFamilyIndices m_familyIndices {};
     vtrs::GPUDevice* m_gpu;
 
@@ -84,9 +95,16 @@ private: // *** Private members *** //
 
     std::vector<VkFramebuffer> m_swapFramebuffers;
 
+    VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
+
     struct SyncObjectBundle m_syncObjects {};
 
     unsigned int m_currentFrame = 0;
+
+    void* m_vertexData = nullptr;
+
+    float m_vertexFactor = 0;
 
     /**
      * @brief Finds the discrete GPU from the enumerated list of GPUs.
@@ -100,6 +118,8 @@ private: // *** Private members *** //
      * @return The bytes read.
      */
     static struct SPIRVBytes readSPIRVShader(const std::string& path);
+
+    uint32_t findMemoryType_(uint32_t filter, VkMemoryPropertyFlags flags);
 
     /**
      * @brief Creates a XCB window surface.
@@ -159,6 +179,8 @@ private: // *** Private members *** //
      * This method will create semaphores and fences for each frame.
      */
     void createSyncObjects_();
+
+    void createVertexBuffer_();
 
     /**
      * Bootstraps the application.

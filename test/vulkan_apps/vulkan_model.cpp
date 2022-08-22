@@ -30,6 +30,30 @@
 #include "renderer/assert.hpp"
 #include "vulkan_model.hpp"
 
+std::vector<vtest::Vertex> vtest::VulkanModel::s_vertices {};
+
+VkVertexInputBindingDescription vtest::Vertex::getInputBindingDescription() {
+    VkVertexInputBindingDescription description {0, sizeof(vtest::Vertex), VK_VERTEX_INPUT_RATE_VERTEX};
+
+    return description;
+}
+
+std::array<VkVertexInputAttributeDescription, 2> vtest::Vertex::getInputAttributeDescription() {
+    std::array<VkVertexInputAttributeDescription, 2> descriptions {};
+
+    descriptions.at(0).binding = 0;
+    descriptions.at(0).location = 0;
+    descriptions.at(0).format = VK_FORMAT_R32G32_SFLOAT;
+    descriptions.at(0).offset = offsetof(vtest::Vertex, coordinate);
+
+    descriptions.at(1).binding = 0;
+    descriptions.at(1).location = 1;
+    descriptions.at(1).format = VK_FORMAT_R32G32B32_SFLOAT;
+    descriptions.at(1).offset = offsetof(vtest::Vertex, rgbColor);
+
+    return descriptions;
+}
+
 vtrs::GPUDevice *vtest::VulkanModel::findDiscreteGPU_() {
     vtrs::GPUDevice* device = vtrs::RendererContext::getGPUList().front();
 
@@ -59,6 +83,19 @@ struct vtest::SPIRVBytes vtest::VulkanModel::readSPIRVShader(const std::string &
     shader_file.close();
 
     return spirv_bytes;
+}
+
+uint32_t vtest::VulkanModel::findMemoryType_(uint32_t filter, VkMemoryPropertyFlags flags) {
+    VkPhysicalDeviceMemoryProperties mem_props {};
+    vkGetPhysicalDeviceMemoryProperties(m_gpu->getDeviceHandle(), &mem_props);
+
+    for (unsigned int index = 0; index < mem_props.memoryTypeCount; index++) {
+        if ((filter & (1 << index)) && (mem_props.memoryTypes[index].propertyFlags & flags) == flags) {
+            return index;
+        }
+    }
+
+    throw vtrs::RuntimeError("Unable to find required memory type.", vtrs::RuntimeError::E_TYPE_GENERAL);
 }
 
 void vtest::VulkanModel::createSurface_(vtrs::XCBConnection* connection, uint32_t window) {
@@ -328,9 +365,14 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
     dynamic_state_info.dynamicStateCount = dynamic_state_list.size();
     dynamic_state_info.pDynamicStates = dynamic_state_list.data();
 
+    auto vertex_bind_desc = vtest::Vertex::getInputBindingDescription();
+    auto vertex_attr_desc = vtest::Vertex::getInputAttributeDescription();
+
     VkPipelineVertexInputStateCreateInfo vertex_input_info {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-    vertex_input_info.vertexBindingDescriptionCount = 0;
-    vertex_input_info.vertexAttributeDescriptionCount = 0;
+    vertex_input_info.vertexBindingDescriptionCount = 1;
+    vertex_input_info.pVertexBindingDescriptions = &vertex_bind_desc;
+    vertex_input_info.vertexAttributeDescriptionCount = vertex_attr_desc.size();
+    vertex_input_info.pVertexAttributeDescriptions = vertex_attr_desc.data();
 
     VkPipelineInputAssemblyStateCreateInfo vertex_assembly_info {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
     vertex_assembly_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -456,13 +498,13 @@ void vtest::VulkanModel::allocateCommandBuffers_() {
     VTRS_ASSERT_VK_RESULT(result, "Unable to allocate command buffers.")
 }
 
-void vtest::VulkanModel::recordCommands_(VkCommandBuffer buffer, uint32_t image_index) {
+void vtest::VulkanModel::recordCommands_(VkCommandBuffer command_buffer, uint32_t image_index) {
     VkCommandBufferBeginInfo command_buffer_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 
-    auto result = vkBeginCommandBuffer(buffer, &command_buffer_info);
-    VTRS_ASSERT_VK_RESULT(result, "Unable to start recording command buffer.")
+    auto result = vkBeginCommandBuffer(command_buffer, &command_buffer_info);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to start recording command command_buffer.")
 
-    VkClearValue clear_colour {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkClearValue clear_colour {{{0.004f, 0.00266f, 0.0088f, 1.0f}}};
 
     VkRenderPassBeginInfo render_pass_info {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     render_pass_info.renderPass = m_renderPass;
@@ -472,8 +514,8 @@ void vtest::VulkanModel::recordCommands_(VkCommandBuffer buffer, uint32_t image_
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clear_colour;
 
-    vkCmdBeginRenderPass(buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
+    vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
 
     VkViewport viewport {0.0f, 0.0f};
     viewport.width = static_cast<float>(m_swapExtend.width);
@@ -481,16 +523,57 @@ void vtest::VulkanModel::recordCommands_(VkCommandBuffer buffer, uint32_t image_
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
-    vkCmdSetViewport(buffer, 0, 1, &viewport);
+    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
     VkRect2D scissor{{ 0, 0 }, m_swapExtend};
-    vkCmdSetScissor(buffer, 0, 1, &scissor);
+    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-    vkCmdDraw(buffer, 3, 1, 0, 0);
-    vkCmdEndRenderPass(buffer);
+    if (m_vertexFactor >= 360) {
+        m_vertexFactor = 0;
+    }
 
-    result = vkEndCommandBuffer(buffer);
-    VTRS_ASSERT_VK_RESULT(result, "Unable to stop recording command buffer.")
+    auto vertex_factor = static_cast<float>(std::sin(m_vertexFactor * (M_PI/180)));
+
+    s_vertices.at(0).coordinate[0] = vertex_factor;
+    s_vertices.at(1).coordinate[0] = 0 - vertex_factor;
+    s_vertices.at(2).coordinate[1] = 0 - vertex_factor;
+
+    s_vertices.at(3).coordinate[0] = vertex_factor;
+    s_vertices.at(4).coordinate[1] = vertex_factor;
+    s_vertices.at(5).coordinate[0] = 0 - vertex_factor;
+
+    s_vertices.at(0).rgbColor[0] = std::abs(vertex_factor);
+    s_vertices.at(0).rgbColor[1] = 1 - std::abs(vertex_factor);
+
+    s_vertices.at(1).rgbColor[0] = std::abs(vertex_factor);
+    s_vertices.at(1).rgbColor[2] = 1 - std::abs(vertex_factor);
+
+    s_vertices.at(2).rgbColor[1] = std::abs(vertex_factor);
+    s_vertices.at(2).rgbColor[2] = 1 - std::abs(vertex_factor);
+
+    s_vertices.at(3).rgbColor[1] = 1 - std::abs(vertex_factor);
+    s_vertices.at(3).rgbColor[2] = std::abs(vertex_factor);
+
+    s_vertices.at(4).rgbColor[0] = std::abs(vertex_factor);
+    s_vertices.at(4).rgbColor[1] = 1 - std::abs(vertex_factor);
+
+    s_vertices.at(5).rgbColor[1] = std::abs(vertex_factor);
+    s_vertices.at(5).rgbColor[2] = 1 - std::abs(vertex_factor);
+
+    m_vertexFactor += 0.9f;
+
+    memcpy(m_vertexData, s_vertices.data(), static_cast<size_t>(sizeof(s_vertices.at(0)) * s_vertices.size()));
+
+    VkBuffer vertex_buffers[] = {m_vertexBuffer};
+    VkDeviceSize offsets[] = {0};
+
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+
+    vkCmdDraw(command_buffer, s_vertices.size(), 1, 0, 0);
+    vkCmdEndRenderPass(command_buffer);
+
+    result = vkEndCommandBuffer(command_buffer);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to stop recording command command_buffer.")
 }
 
 void vtest::VulkanModel::createSyncObjects_() {
@@ -509,6 +592,34 @@ void vtest::VulkanModel::createSyncObjects_() {
         result = vkCreateFence(m_device, &fence_info, nullptr, &(m_syncObjects.inFlightFence.at(index)));
         VTRS_ASSERT_VK_RESULT(result, "Unable to obtain in-flight fence.")
     }
+}
+
+void vtest::VulkanModel::createVertexBuffer_() {
+    VkBufferCreateInfo buffer_info {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    buffer_info.size = sizeof(s_vertices.at(0)) * s_vertices.size();
+    buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    auto result = vkCreateBuffer(m_device, &buffer_info, nullptr, &m_vertexBuffer);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create vertex buffer.")
+
+    VkMemoryRequirements mem_reqs {};
+    vkGetBufferMemoryRequirements(m_device, m_vertexBuffer, &mem_reqs);
+
+    VkMemoryAllocateInfo alloc_info {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    alloc_info.allocationSize = mem_reqs.size;
+    alloc_info.memoryTypeIndex = findMemoryType_(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    result = vkAllocateMemory(m_device, &alloc_info, nullptr, &m_vertexMemory);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to allocate vertex memory.")
+
+    result = vkBindBufferMemory(m_device, m_vertexBuffer, m_vertexMemory, 0);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to bind vertex memory and buffer.")
+
+    result = vkMapMemory(m_device, m_vertexMemory, 0, buffer_info.size, 0, &m_vertexData);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to map vertex memory.")
+
+    memcpy(m_vertexData, s_vertices.data(), static_cast<size_t>(buffer_info.size));
 }
 
 void vtest::VulkanModel::bootstrap_() {
@@ -531,11 +642,21 @@ void vtest::VulkanModel::bootstrap_() {
     setupGraphicsPipeline_();
     createFramebuffers_();
     createCommandPool_();
+    createVertexBuffer_();
     allocateCommandBuffers_();
     createSyncObjects_();
 }
 
 vtest::VulkanModel *vtest::VulkanModel::factory(vtrs::XCBClient* client, vtrs::XCBWindow window) {
+    if (s_vertices.empty()) {
+        s_vertices.push_back({{-1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}});
+        s_vertices.push_back({{1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
+        s_vertices.push_back({{-1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
+        s_vertices.push_back({{-1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}});
+        s_vertices.push_back({{1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}});
+        s_vertices.push_back({{1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
+    }
+
     auto application = new VulkanModel();
     application->createSurface_(client->getConnection(), window.identifier);
     application->bootstrap_();
@@ -561,6 +682,10 @@ vtest::VulkanModel::VulkanModel() {
 
 vtest::VulkanModel::~VulkanModel() {
     vtrs::Logger::info("Cleaning up Vulkan Model application.");
+    vkUnmapMemory(m_device, m_vertexMemory);
+
+    vkDestroyBuffer(m_device, m_vertexBuffer, nullptr);
+    vkFreeMemory(m_device, m_vertexMemory, nullptr);
 
     for (size_t index = 0; index < VTEST_MAX_FRAMES_IN_FLIGHT; index++) {
         vkDestroySemaphore(m_device, m_syncObjects.imageAvailableSem.at(index), nullptr);
@@ -609,7 +734,7 @@ bool vtest::VulkanModel::drawFrame() {
         return false;
     }
 
-    VTRS_ASSERT_VK_RESULT(result, "Unable to obtain next image from swapchain")
+    VTRS_ASSERT_VK_RESULT(result, "Unable to obtain next image from swapchain.")
 
     vkResetFences(m_device, 1, &(m_syncObjects.inFlightFence.at(m_currentFrame)));
 
@@ -624,7 +749,7 @@ bool vtest::VulkanModel::drawFrame() {
     submit_info.pWaitSemaphores = wait_semaphores;
     submit_info.pWaitDstStageMask = wait_stages;
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &m_commandBuffers.at(m_currentFrame);
+    submit_info.pCommandBuffers = &(m_commandBuffers.at(m_currentFrame));
 
     VkSemaphore signal_semaphores[] = {m_syncObjects.renderFinishedSem.at(m_currentFrame)};
     submit_info.signalSemaphoreCount = 1;
@@ -677,3 +802,4 @@ void vtest::VulkanModel::rebuildSwapchain() {
     createImageViews_();
     createFramebuffers_();
 }
+
