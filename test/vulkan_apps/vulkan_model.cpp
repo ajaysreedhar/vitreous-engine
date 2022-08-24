@@ -532,8 +532,10 @@ void vtest::VulkanModel::recordCommands_(VkCommandBuffer command_buffer, uint32_
         m_vertexFactor = 0;
     }
 
+
     auto vertex_factor = static_cast<float>(std::sin(m_vertexFactor * (M_PI/180)));
 
+    // Coordinates
     s_vertices.at(0).coordinate[0] = vertex_factor;
     s_vertices.at(1).coordinate[0] = 0 - vertex_factor;
     s_vertices.at(2).coordinate[1] = 0 - vertex_factor;
@@ -542,6 +544,7 @@ void vtest::VulkanModel::recordCommands_(VkCommandBuffer command_buffer, uint32_
     s_vertices.at(4).coordinate[1] = vertex_factor;
     s_vertices.at(5).coordinate[0] = 0 - vertex_factor;
 
+    // Colors
     s_vertices.at(0).rgbColor[0] = std::abs(vertex_factor);
     s_vertices.at(0).rgbColor[1] = 1 - std::abs(vertex_factor);
 
