@@ -42,7 +42,7 @@ add_library(vtrs-renderer SHARED
         renderer/except.hpp
         renderer/vulkan_api.hpp
         renderer/assert.hpp
-        renderer/gpu_device.cpp         renderer/gpu_device.hpp
+        renderer/renderer_gpu.cpp renderer/renderer_gpu.hpp
         renderer/renderer_context.cpp   renderer/renderer_context.hpp)
 target_link_libraries(vtrs-renderer PUBLIC ${Vulkan_LIBRARIES} vtrs-platform)
 target_include_directories(vtrs-renderer PUBLIC ${Vulkan_INCLUDE_DIRS} "${CMAKE_CURRENT_SOURCE_DIR}")
