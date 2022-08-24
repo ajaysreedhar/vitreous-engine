@@ -32,6 +32,7 @@ namespace vtest {
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> transferFamily;
     std::optional<uint32_t> surfaceFamily;
 };
 
@@ -52,6 +53,11 @@ struct SyncObjectBundle {
     std::vector <VkFence> inFlightFence;
 };
 
+struct BufferObjectBundle {
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+};
+
 struct Vertex {
     float coordinate[2];
     float rgbColor[3];
@@ -70,6 +76,7 @@ class VulkanModel {
 
 private: // *** Private members *** //
     static std::vector<Vertex> s_vertices;
+    static std::vector<uint16_t> s_indices;
 
     struct QueueFamilyIndices m_familyIndices {};
     vtrs::GPUDevice* m_gpu;
@@ -79,6 +86,7 @@ private: // *** Private members *** //
 
     VkQueue m_surfaceQueue = VK_NULL_HANDLE;
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
+    VkQueue m_transferQueue = VK_NULL_HANDLE;
 
     VkSwapchainKHR m_swapchain = VK_NULL_HANDLE;
     VkExtent2D m_swapExtend {};
@@ -89,7 +97,8 @@ private: // *** Private members *** //
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkRenderPass m_renderPass = VK_NULL_HANDLE;
 
-    VkCommandPool m_commandPool = VK_NULL_HANDLE;
+    VkCommandPool m_graphicsCmdPool = VK_NULL_HANDLE;
+    VkCommandPool m_transferCmdPool = VK_NULL_HANDLE;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
 
@@ -98,11 +107,16 @@ private: // *** Private members *** //
     VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
 
+    VkBuffer m_indexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_indexMemory = VK_NULL_HANDLE;
+
     struct SyncObjectBundle m_syncObjects {};
 
     unsigned int m_currentFrame = 0;
 
     void* m_vertexData = nullptr;
+
+    void* m_indexData = nullptr;
 
     float m_vertexFactor = 0;
 
@@ -164,7 +178,11 @@ private: // *** Private members *** //
 
     void createFramebuffers_();
 
-    void createCommandPool_();
+    void createCommandPools_();
+
+    BufferObjectBundle createBuffer_(VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags);
+
+    void copyBuffer_(VkBuffer, VkBuffer, VkDeviceSize);
 
     /**
      * @brief Allocates command buffers for the frames in flight.
@@ -181,6 +199,8 @@ private: // *** Private members *** //
     void createSyncObjects_();
 
     void createVertexBuffer_();
+
+    void createIndexBuffer_();
 
     /**
      * Bootstraps the application.

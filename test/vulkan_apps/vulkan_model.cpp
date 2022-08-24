@@ -31,6 +31,7 @@
 #include "vulkan_model.hpp"
 
 std::vector<vtest::Vertex> vtest::VulkanModel::s_vertices {};
+std::vector<uint16_t> vtest::VulkanModel::s_indices {};
 
 VkVertexInputBindingDescription vtest::Vertex::getInputBindingDescription() {
     VkVertexInputBindingDescription description {0, sizeof(vtest::Vertex), VK_VERTEX_INPUT_RATE_VERTEX};
@@ -111,7 +112,11 @@ void vtest::VulkanModel::createLogicalDevice_() {
     float queue_priority = 1.0f;
 
     std::vector<VkDeviceQueueCreateInfo> queue_info {};
-    std::set<uint32_t> required_indices {m_familyIndices.graphicsFamily.value(), m_familyIndices.surfaceFamily.value()};
+    std::set<uint32_t> required_indices {
+        m_familyIndices.graphicsFamily.value(),
+        m_familyIndices.transferFamily.value(),
+        m_familyIndices.surfaceFamily.value(),
+    };
 
     for (auto required_index : required_indices) {
         VkDeviceQueueCreateInfo info {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
@@ -137,6 +142,7 @@ void vtest::VulkanModel::createLogicalDevice_() {
     VTRS_ASSERT_VK_RESULT(result, "Unable to create logical device.")
 
     vkGetDeviceQueue(m_device, m_familyIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
+    vkGetDeviceQueue(m_device, m_familyIndices.transferFamily.value(), 0, &m_transferQueue);
     vkGetDeviceQueue(m_device, m_familyIndices.surfaceFamily.value(), 0, &m_surfaceQueue);
 }
 
@@ -236,7 +242,7 @@ void vtest::VulkanModel::createSwapchain_() {
     } else {
         uint32_t family_indices[] = {m_familyIndices.surfaceFamily.value(), m_familyIndices.graphicsFamily.value()};
 
-        swapchain_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        swapchain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swapchain_info.queueFamilyIndexCount = 2;
         swapchain_info.pQueueFamilyIndices = family_indices;
     }
@@ -479,18 +485,22 @@ void vtest::VulkanModel::createFramebuffers_() {
     }
 }
 
-void vtest::VulkanModel::createCommandPool_() {
+void vtest::VulkanModel::createCommandPools_() {
     VkCommandPoolCreateInfo pool_info {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
     pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pool_info.queueFamilyIndex = m_familyIndices.graphicsFamily.value();
 
-    auto result = vkCreateCommandPool(m_device, &pool_info, nullptr, &m_commandPool);
-    VTRS_ASSERT_VK_RESULT(result, "Unable to create command pool.")
+    auto result = vkCreateCommandPool(m_device, &pool_info, nullptr, &m_graphicsCmdPool);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create Graphics Command Pool.")
+
+    pool_info.queueFamilyIndex = m_familyIndices.transferFamily.value();
+    result = vkCreateCommandPool(m_device, &pool_info, nullptr, &m_transferCmdPool);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create Transfer Command Pool.")
 }
 
 void vtest::VulkanModel::allocateCommandBuffers_() {
     VkCommandBufferAllocateInfo buffer_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-    buffer_info.commandPool = m_commandPool;
+    buffer_info.commandPool = m_graphicsCmdPool;
     buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     buffer_info.commandBufferCount = m_commandBuffers.size();
 
@@ -528,6 +538,7 @@ void vtest::VulkanModel::recordCommands_(VkCommandBuffer command_buffer, uint32_
     VkRect2D scissor{{ 0, 0 }, m_swapExtend};
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
+    /*
     if (m_vertexFactor >= 360) {
         m_vertexFactor = 0;
     }
@@ -566,13 +577,15 @@ void vtest::VulkanModel::recordCommands_(VkCommandBuffer command_buffer, uint32_
     m_vertexFactor += 0.9f;
 
     memcpy(m_vertexData, s_vertices.data(), static_cast<size_t>(sizeof(s_vertices.at(0)) * s_vertices.size()));
+    // */
 
     VkBuffer vertex_buffers[] = {m_vertexBuffer};
     VkDeviceSize offsets[] = {0};
 
     vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+    vkCmdBindIndexBuffer(command_buffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdDraw(command_buffer, s_vertices.size(), 1, 0, 0);
+    vkCmdDrawIndexed(command_buffer, s_indices.size(), 1, 0, 0, 0);
     vkCmdEndRenderPass(command_buffer);
 
     result = vkEndCommandBuffer(command_buffer);
@@ -597,36 +610,118 @@ void vtest::VulkanModel::createSyncObjects_() {
     }
 }
 
-void vtest::VulkanModel::createVertexBuffer_() {
+void vtest::VulkanModel::copyBuffer_(VkBuffer dest_buffer, VkBuffer src_buffer, VkDeviceSize buffer_size) {
+    VkCommandBufferAllocateInfo alloc_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandPool = m_transferCmdPool;
+    alloc_info.commandBufferCount = 1;
+
+    VkCommandBuffer cmd_buffer = VK_NULL_HANDLE;
+    auto result = vkAllocateCommandBuffers(m_device, &alloc_info, &cmd_buffer);
+    VTRS_ASSERT_VK_RESULT(result, "Private member copyBuffer_ failed while allocating command buffer.")
+
+    VkCommandBufferBeginInfo begin_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    result = vkBeginCommandBuffer(cmd_buffer, &begin_info);
+    VTRS_ASSERT_VK_RESULT(result, "Private member copyBuffer_ failed while attempting to record commands.")
+
+    VkBufferCopy copy_region {0, 0, buffer_size};
+    vkCmdCopyBuffer(cmd_buffer, src_buffer, dest_buffer, 1, &copy_region);
+
+    result = vkEndCommandBuffer(cmd_buffer);
+    VTRS_ASSERT_VK_RESULT(result, "Private member copyBuffer_ failed after copying buffer region.")
+
+    VkSubmitInfo submit_info {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &cmd_buffer;
+
+    result = vkQueueSubmit(m_transferQueue, 1, &submit_info, VK_NULL_HANDLE);
+    VTRS_ASSERT_VK_RESULT(result, "Private member copyBuffer_ failed while submitting command buffer.")
+
+    vkQueueWaitIdle(m_transferQueue);
+    vkFreeCommandBuffers(m_device, m_transferCmdPool, 1, &cmd_buffer);
+}
+
+
+vtest::BufferObjectBundle vtest::VulkanModel::createBuffer_(VkDeviceSize buffer_size, VkBufferUsageFlags buffer_flags, VkMemoryPropertyFlags mem_flags) {
+    BufferObjectBundle bundle {VK_NULL_HANDLE, VK_NULL_HANDLE};
+
     VkBufferCreateInfo buffer_info {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    buffer_info.size = sizeof(s_vertices.at(0)) * s_vertices.size();
-    buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    buffer_info.size = buffer_size;
+    buffer_info.usage = buffer_flags;
     buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    auto result = vkCreateBuffer(m_device, &buffer_info, nullptr, &m_vertexBuffer);
-    VTRS_ASSERT_VK_RESULT(result, "Unable to create vertex buffer.")
+    auto result = vkCreateBuffer(m_device, &buffer_info, nullptr, &(bundle.buffer));
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create specified buffer buffer.")
 
     VkMemoryRequirements mem_reqs {};
-    vkGetBufferMemoryRequirements(m_device, m_vertexBuffer, &mem_reqs);
+    vkGetBufferMemoryRequirements(m_device, bundle.buffer, &mem_reqs);
 
     VkMemoryAllocateInfo alloc_info {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
     alloc_info.allocationSize = mem_reqs.size;
-    alloc_info.memoryTypeIndex = findMemoryType_(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    alloc_info.memoryTypeIndex = findMemoryType_(mem_reqs.memoryTypeBits, mem_flags);
 
-    result = vkAllocateMemory(m_device, &alloc_info, nullptr, &m_vertexMemory);
-    VTRS_ASSERT_VK_RESULT(result, "Unable to allocate vertex memory.")
+    result = vkAllocateMemory(m_device, &alloc_info, nullptr, &(bundle.memory));
+    VTRS_ASSERT_VK_RESULT(result, "Unable to allocate memory for buffer.")
 
-    result = vkBindBufferMemory(m_device, m_vertexBuffer, m_vertexMemory, 0);
-    VTRS_ASSERT_VK_RESULT(result, "Unable to bind vertex memory and buffer.")
+    result = vkBindBufferMemory(m_device, bundle.buffer, bundle.memory, 0);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to bind new memory for buffer.")
 
-    result = vkMapMemory(m_device, m_vertexMemory, 0, buffer_info.size, 0, &m_vertexData);
-    VTRS_ASSERT_VK_RESULT(result, "Unable to map vertex memory.")
-
-    memcpy(m_vertexData, s_vertices.data(), static_cast<size_t>(buffer_info.size));
+    return bundle;
 }
+
+void vtest::VulkanModel::createVertexBuffer_() {
+    VkDeviceSize buffer_size = sizeof(s_vertices.at(0)) * s_vertices.size();
+    BufferObjectBundle staging_bundle = createBuffer_(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    auto result = vkMapMemory(m_device, staging_bundle.memory, 0, buffer_size, 0, &m_vertexData);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to map staging vertex memory.")
+
+    memcpy(m_vertexData, s_vertices.data(), static_cast<size_t>(buffer_size));
+
+    BufferObjectBundle local_bundle = createBuffer_(buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    m_vertexBuffer = local_bundle.buffer;
+    m_vertexMemory = local_bundle.memory;
+
+    copyBuffer_(m_vertexBuffer, staging_bundle.buffer, buffer_size);
+
+    vkUnmapMemory(m_device, staging_bundle.memory);
+
+    vkDestroyBuffer(m_device, staging_bundle.buffer, nullptr);
+    vkFreeMemory(m_device, staging_bundle.memory, nullptr);
+}
+
+void vtest::VulkanModel::createIndexBuffer_() {
+    VkDeviceSize buffer_size = sizeof(s_indices.at(0)) * s_indices.size();
+    BufferObjectBundle staging_bundle = createBuffer_(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    auto result = vkMapMemory(m_device, staging_bundle.memory, 0, buffer_size, 0, &m_indexData);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to map staging index memory.")
+
+    memcpy(m_indexData, s_indices.data(), static_cast<size_t>(buffer_size));
+
+    BufferObjectBundle local_bundle = createBuffer_(buffer_size,
+                                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    m_indexBuffer = local_bundle.buffer;
+    m_indexMemory = local_bundle.memory;
+
+    copyBuffer_(m_indexBuffer, staging_bundle.buffer, buffer_size);
+
+    vkUnmapMemory(m_device, staging_bundle.memory);
+    vkDestroyBuffer(m_device, staging_bundle.buffer, nullptr);
+    vkFreeMemory(m_device, staging_bundle.memory, nullptr);
+}
+
 
 void vtest::VulkanModel::bootstrap_() {
     m_familyIndices.graphicsFamily = m_gpu->getQueueFamilyIndex(vtrs::GPUDevice::QUEUE_FAMILY_INDEX_GRAPHICS);
+    m_familyIndices.transferFamily = m_gpu->getQueueFamilyIndex(vtrs::GPUDevice::QUEUE_FAMILY_INDEX_TRANSFER);
 
     for (uint32_t index = 0; index < m_gpu->getQueueFamilyCount(); index++) {
         VkBool32 is_supported = false;
@@ -644,20 +739,25 @@ void vtest::VulkanModel::bootstrap_() {
     createRenderPass_();
     setupGraphicsPipeline_();
     createFramebuffers_();
-    createCommandPool_();
+    createCommandPools_();
     createVertexBuffer_();
+    createIndexBuffer_();
     allocateCommandBuffers_();
     createSyncObjects_();
 }
 
 vtest::VulkanModel *vtest::VulkanModel::factory(vtrs::XCBClient* client, vtrs::XCBWindow window) {
     if (s_vertices.empty()) {
-        s_vertices.push_back({{-1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}});
+        s_vertices.push_back({{-1.0f, -1.0f}, {0.7f, 0.3f, 1.0f}});
         s_vertices.push_back({{1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
         s_vertices.push_back({{-1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
         s_vertices.push_back({{-1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}});
         s_vertices.push_back({{1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}});
         s_vertices.push_back({{1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
+
+        s_indices.push_back(0);
+        s_indices.push_back(1);
+        s_indices.push_back(2);
     }
 
     auto application = new VulkanModel();
@@ -685,10 +785,12 @@ vtest::VulkanModel::VulkanModel() {
 
 vtest::VulkanModel::~VulkanModel() {
     vtrs::Logger::info("Cleaning up Vulkan Model application.");
-    vkUnmapMemory(m_device, m_vertexMemory);
 
     vkDestroyBuffer(m_device, m_vertexBuffer, nullptr);
     vkFreeMemory(m_device, m_vertexMemory, nullptr);
+
+    vkDestroyBuffer(m_device, m_indexBuffer, nullptr);
+    vkFreeMemory(m_device, m_indexMemory, nullptr);
 
     for (size_t index = 0; index < VTEST_MAX_FRAMES_IN_FLIGHT; index++) {
         vkDestroySemaphore(m_device, m_syncObjects.imageAvailableSem.at(index), nullptr);
@@ -696,7 +798,8 @@ vtest::VulkanModel::~VulkanModel() {
         vkDestroyFence(m_device, m_syncObjects.inFlightFence.at(index), nullptr);
     }
 
-    vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+    vkDestroyCommandPool(m_device, m_transferCmdPool, nullptr);
+    vkDestroyCommandPool(m_device, m_graphicsCmdPool, nullptr);
 
     for (auto framebuffer : m_swapFramebuffers) {
         vkDestroyFramebuffer(m_device, framebuffer, nullptr);
@@ -805,4 +908,3 @@ void vtest::VulkanModel::rebuildSwapchain() {
     createImageViews_();
     createFramebuffers_();
 }
-
