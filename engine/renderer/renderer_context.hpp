@@ -24,7 +24,7 @@
 #include <vector>
 #include <map>
 #include "vulkan_api.hpp"
-#include "gpu_device.hpp"
+#include "renderer_gpu.hpp"
 
 namespace vtrs {
 
@@ -39,7 +39,7 @@ class RendererContext {
 private:
     static inline bool s_isInitialised = false;
     static inline VkInstance s_instance {};
-    static inline std::map<uint32_t, GPUDevice*> s_gpuList {};
+    static inline std::map<uint32_t, RendererGPU*> s_gpuList {};
 
     /**
      * @brief Creates the Vulkan context.
@@ -75,9 +75,9 @@ public:
 
     /**
      * @brief Returns the enumerated list of GPUs.
-     * @return A vector containing the GPUDevice instances.
+     * @return A vector containing the RendererGPU instances.
      */
-    static std::vector<GPUDevice*> getGPUList();
+    static std::vector<RendererGPU*> getGPUList();
 
     /**
      * @brief Returns the Global Vulkan instance handle.

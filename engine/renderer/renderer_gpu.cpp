@@ -20,10 +20,10 @@
  */
 #include <cstdlib>
 #include "platform/logger.hpp"
-#include "gpu_device.hpp"
+#include "renderer_gpu.hpp"
 #include "assert.hpp"
 
-uint32_t vtrs::GPUDevice::recordCapabilities_() {
+uint32_t vtrs::RendererGPU::recordCapabilities_() {
     uint32_t score = 0;
 
     vkGetPhysicalDeviceProperties(m_device, m_properties);
@@ -53,7 +53,7 @@ uint32_t vtrs::GPUDevice::recordCapabilities_() {
     return score + m_properties->limits.maxImageDimension2D;
 }
 
-void vtrs::GPUDevice::mapQueueFamilies_() {
+void vtrs::RendererGPU::mapQueueFamilies_() {
     uint32_t family_index = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(m_device, &m_qFamilyCount, nullptr);
 
@@ -63,25 +63,25 @@ void vtrs::GPUDevice::mapQueueFamilies_() {
     for (auto& family : family_list) {
 
         if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-            m_qFamilyIndices.insert(std::make_pair(GPUDevice::QUEUE_FAMILY_INDEX_GRAPHICS, family_index));
+            m_qFamilyIndices.insert(std::make_pair(RendererGPU::QUEUE_FAMILY_INDEX_GRAPHICS, family_index));
 
         if (family.queueFlags & VK_QUEUE_COMPUTE_BIT)
-            m_qFamilyIndices.insert(std::make_pair(GPUDevice::QUEUE_FAMILY_INDEX_COMPUTE, family_index));
+            m_qFamilyIndices.insert(std::make_pair(RendererGPU::QUEUE_FAMILY_INDEX_COMPUTE, family_index));
 
         if (family.queueFlags & VK_QUEUE_TRANSFER_BIT)
-            m_qFamilyIndices.insert(std::make_pair(GPUDevice::QUEUE_FAMILY_INDEX_TRANSFER, family_index));
+            m_qFamilyIndices.insert(std::make_pair(RendererGPU::QUEUE_FAMILY_INDEX_TRANSFER, family_index));
 
         if (family.queueFlags & VK_QUEUE_SPARSE_BINDING_BIT)
-            m_qFamilyIndices.insert(std::make_pair(GPUDevice::QUEUE_FAMILY_INDEX_SPARSE_B, family_index));
+            m_qFamilyIndices.insert(std::make_pair(RendererGPU::QUEUE_FAMILY_INDEX_SPARSE_B, family_index));
 
         if (family.queueFlags & VK_QUEUE_PROTECTED_BIT)
-            m_qFamilyIndices.insert(std::make_pair(GPUDevice::QUEUE_FAMILY_INDEX_PROTECTED, family_index));
+            m_qFamilyIndices.insert(std::make_pair(RendererGPU::QUEUE_FAMILY_INDEX_PROTECTED, family_index));
 
         family_index++;
     }
 }
 
-void vtrs::GPUDevice::queryDeviceExtensions_() {
+void vtrs::RendererGPU::queryDeviceExtensions_() {
     uint32_t extension_count;
 
     auto result = vkEnumerateDeviceExtensionProperties(m_device, nullptr, &extension_count, nullptr);
@@ -92,7 +92,7 @@ void vtrs::GPUDevice::queryDeviceExtensions_() {
 }
 
 
-std::vector<vtrs::GPUDevice*> vtrs::GPUDevice::enumerate(VkInstance instance) {
+std::vector<vtrs::RendererGPU*> vtrs::RendererGPU::enumerate(VkInstance instance) {
     uint32_t gpu_count;
 
     auto result = vkEnumeratePhysicalDevices(instance, &gpu_count, nullptr);
@@ -104,13 +104,13 @@ std::vector<vtrs::GPUDevice*> vtrs::GPUDevice::enumerate(VkInstance instance) {
 
     int device_index = 0;
     std::vector<VkPhysicalDevice> candidates(gpu_count);
-    std::vector<GPUDevice*> device_list(gpu_count);
+    std::vector<RendererGPU*> device_list(gpu_count);
 
     result = vkEnumeratePhysicalDevices(instance, &gpu_count, candidates.data());
     VTRS_ASSERT_VK_RESULT(result, "Unable to query GPUs with Vulkan support.")
 
     for(auto gpu : candidates) {
-        auto device = new GPUDevice(gpu);
+        auto device = new RendererGPU(gpu);
         device->mapQueueFamilies_();
         device->queryDeviceExtensions_();
 
@@ -121,7 +121,7 @@ std::vector<vtrs::GPUDevice*> vtrs::GPUDevice::enumerate(VkInstance instance) {
     return device_list;
 }
 
-vtrs::GPUDevice::GPUDevice(VkPhysicalDevice device) {
+vtrs::RendererGPU::RendererGPU(VkPhysicalDevice device) {
     m_properties = new VkPhysicalDeviceProperties();
     m_features = new VkPhysicalDeviceFeatures();
     m_device = device;
@@ -129,7 +129,7 @@ vtrs::GPUDevice::GPUDevice(VkPhysicalDevice device) {
     m_gpuScore = recordCapabilities_();
 }
 
-vtrs::GPUDevice::~GPUDevice() {
+vtrs::RendererGPU::~RendererGPU() {
 #if (defined(VTRS_MODE_DEBUG) && VTRS_MODE_DEBUG == 1)
     vtrs::Logger::debug("Cleaning up", m_properties->deviceID, m_properties->deviceName, "GPU information.");
 #endif
@@ -140,23 +140,23 @@ vtrs::GPUDevice::~GPUDevice() {
     m_qFamilyIndices.clear();
 }
 
-VkPhysicalDevice vtrs::GPUDevice::getDeviceHandle() const {
+VkPhysicalDevice vtrs::RendererGPU::getDeviceHandle() const {
     return m_device;
 }
 
-uint32_t vtrs::GPUDevice::getDeviceId() const {
+uint32_t vtrs::RendererGPU::getDeviceId() const {
     return m_properties->deviceID;
 }
 
-uint32_t vtrs::GPUDevice::getGPUScore() const {
+uint32_t vtrs::RendererGPU::getGPUScore() const {
     return m_gpuScore;
 }
 
-uint32_t vtrs::GPUDevice::getQueueFamilyCount() const {
+uint32_t vtrs::RendererGPU::getQueueFamilyCount() const {
     return m_qFamilyCount;
 }
 
-uint32_t vtrs::GPUDevice::getQueueFamilyIndex(vtrs::GPUDevice::QueueFamilyType type) const {
+uint32_t vtrs::RendererGPU::getQueueFamilyIndex(vtrs::RendererGPU::QueueFamilyType type) const {
     try {
         return m_qFamilyIndices.at(type);
 
@@ -165,7 +165,7 @@ uint32_t vtrs::GPUDevice::getQueueFamilyIndex(vtrs::GPUDevice::QueueFamilyType t
     }
 }
 
-std::vector<const char *> vtrs::GPUDevice::getExtensionNames() {
+std::vector<const char *> vtrs::RendererGPU::getExtensionNames() {
     std::vector<const char *> names(m_deviceExtensions.size());
 
     int index = 0;
@@ -177,7 +177,7 @@ std::vector<const char *> vtrs::GPUDevice::getExtensionNames() {
     return names;
 }
 
-void vtrs::GPUDevice::printInfo() {
+void vtrs::RendererGPU::printInfo() {
     const char* type;
 
     switch (m_properties->deviceType) {

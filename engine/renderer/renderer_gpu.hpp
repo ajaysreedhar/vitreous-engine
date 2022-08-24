@@ -32,7 +32,7 @@ namespace vtrs {
  * Stores information regarding the capabilities of the GPU
  * including its features, properties and queue families.
  */
-class GPUDevice {
+class RendererGPU {
 
 private:
     uint32_t m_gpuScore = 0;
@@ -69,7 +69,7 @@ private:
      * @brief Initialises the instance with device handle and capabilities.
      * @param device A Vulkan physical device handle.
      */
-    explicit GPUDevice(VkPhysicalDevice device);
+    explicit RendererGPU(VkPhysicalDevice device);
 
 public:
     enum QueueFamilyType : int {
@@ -85,12 +85,12 @@ public:
      * @throw vtrs::RendererException Thrown if the enumeration fails.
      * @return A vector containing GPU device instances.
      */
-    static std::vector<GPUDevice*> enumerate(VkInstance);
+    static std::vector<RendererGPU*> enumerate(VkInstance);
 
     /**
      * @brief Cleans up when an instance is destroyed.
      */
-    ~GPUDevice();
+    ~RendererGPU();
 
     /**
      * @brief Returns the Vulkan handle of the GPU.

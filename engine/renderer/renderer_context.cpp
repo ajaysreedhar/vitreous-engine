@@ -49,7 +49,7 @@ void vtrs::RendererContext::initVulkan_(std::vector<const char*>& extensions) {
 }
 
 void vtrs::RendererContext::enumerateGPUs_() {
-    std::vector<GPUDevice*> devices = GPUDevice::enumerate(s_instance);
+    std::vector<RendererGPU*> devices = RendererGPU::enumerate(s_instance);
 
     for (auto gpu : devices) {
         uint32_t device_id = gpu->getDeviceId();
@@ -89,9 +89,9 @@ void vtrs::RendererContext::destroy() {
     vkDestroyInstance(s_instance, nullptr);
 }
 
-std::vector<vtrs::GPUDevice*> vtrs::RendererContext::getGPUList() {
+std::vector<vtrs::RendererGPU*> vtrs::RendererContext::getGPUList() {
     int index = 0;
-    std::vector<vtrs::GPUDevice*> gpu_list(s_gpuList.size());
+    std::vector<vtrs::RendererGPU*> gpu_list(s_gpuList.size());
 
     for(auto gpu_pair : s_gpuList) {
         gpu_list.at(index) = gpu_pair.second;
