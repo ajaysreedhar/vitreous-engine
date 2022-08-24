@@ -55,8 +55,8 @@ std::array<VkVertexInputAttributeDescription, 2> vtest::Vertex::getInputAttribut
     return descriptions;
 }
 
-vtrs::GPUDevice *vtest::VulkanModel::findDiscreteGPU_() {
-    vtrs::GPUDevice* device = vtrs::RendererContext::getGPUList().front();
+vtrs::RendererGPU *vtest::VulkanModel::findDiscreteGPU_() {
+    vtrs::RendererGPU* device = vtrs::RendererContext::getGPUList().front();
 
     for (auto next : vtrs::RendererContext::getGPUList()) {
         if (next->getGPUScore() > device->getGPUScore()) {
@@ -720,8 +720,8 @@ void vtest::VulkanModel::createIndexBuffer_() {
 
 
 void vtest::VulkanModel::bootstrap_() {
-    m_familyIndices.graphicsFamily = m_gpu->getQueueFamilyIndex(vtrs::GPUDevice::QUEUE_FAMILY_INDEX_GRAPHICS);
-    m_familyIndices.transferFamily = m_gpu->getQueueFamilyIndex(vtrs::GPUDevice::QUEUE_FAMILY_INDEX_TRANSFER);
+    m_familyIndices.graphicsFamily = m_gpu->getQueueFamilyIndex(vtrs::RendererGPU::QUEUE_FAMILY_INDEX_GRAPHICS);
+    m_familyIndices.transferFamily = m_gpu->getQueueFamilyIndex(vtrs::RendererGPU::QUEUE_FAMILY_INDEX_TRANSFER);
 
     for (uint32_t index = 0; index < m_gpu->getQueueFamilyCount(); index++) {
         VkBool32 is_supported = false;

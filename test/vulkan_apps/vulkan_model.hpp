@@ -79,7 +79,7 @@ private: // *** Private members *** //
     static std::vector<uint16_t> s_indices;
 
     struct QueueFamilyIndices m_familyIndices {};
-    vtrs::GPUDevice* m_gpu;
+    vtrs::RendererGPU* m_gpu;
 
     VkDevice m_device = VK_NULL_HANDLE;
     VkSurfaceKHR m_surface = VK_NULL_HANDLE;
@@ -124,7 +124,7 @@ private: // *** Private members *** //
      * @brief Finds the discrete GPU from the enumerated list of GPUs.
      * @return A handle to the discrete GPU.
      */
-    static vtrs::GPUDevice* findDiscreteGPU_();
+    static vtrs::RendererGPU* findDiscreteGPU_();
 
     /**
      * @brief Reads characters from a compiled SPIR-V shader file.
