@@ -35,11 +35,18 @@ namespace vtrs {
 class RendererGPU {
 
 private:
-    uint32_t m_gpuScore = 0;
+    /**
+     * @brief Score based on capabilities of the GPU.
+     */
+    uint32_t m_score = 0;
+
+    /**
+     * @brief Vulkan handle for the GPU.
+     */
     VkPhysicalDevice m_device = VK_NULL_HANDLE;
+
     VkPhysicalDeviceProperties* m_properties;
     VkPhysicalDeviceFeatures* m_features;
-
     uint32_t m_qFamilyCount = 0;
     std::map<int, uint32_t> m_qFamilyIndices;
     std::vector<VkExtensionProperties> m_deviceExtensions;

@@ -126,7 +126,7 @@ vtrs::RendererGPU::RendererGPU(VkPhysicalDevice device) {
     m_features = new VkPhysicalDeviceFeatures();
     m_device = device;
 
-    m_gpuScore = recordCapabilities_();
+    m_score = recordCapabilities_();
 }
 
 vtrs::RendererGPU::~RendererGPU() {
@@ -149,7 +149,7 @@ uint32_t vtrs::RendererGPU::getDeviceId() const {
 }
 
 uint32_t vtrs::RendererGPU::getGPUScore() const {
-    return m_gpuScore;
+    return m_score;
 }
 
 uint32_t vtrs::RendererGPU::getQueueFamilyCount() const {
@@ -208,7 +208,7 @@ void vtrs::RendererGPU::printInfo() {
     vtrs::Logger::print("Vendor Id:", m_properties->vendorID);
     vtrs::Logger::print("Device Name:", m_properties->deviceName);
     vtrs::Logger::print("Device Type:", type);
-    vtrs::Logger::print("GPU Score:", m_gpuScore);
+    vtrs::Logger::print("GPU Score:", m_score);
     vtrs::Logger::print("API Version:", m_properties->apiVersion);
     vtrs::Logger::print("");
 }
