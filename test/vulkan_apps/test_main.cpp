@@ -24,7 +24,7 @@
 #include "platform/linux/xcb_client.hpp"
 #include "vulkan_model.hpp"
 
-int testVulkanModel() {
+int testVulkanModel(const std::string& model_type, const std::string& texture_file, const std::string& model_file) {
     vtrs::XCBClient* xcb_client;
     vtest::VulkanModel* application;
     vtrs::XCBWindow window;
@@ -34,12 +34,28 @@ int testVulkanModel() {
         window = xcb_client->createWindow(800, 600);
         application = vtest::VulkanModel::factory(xcb_client, window);
 
-    } catch (vtrs::PlatformError& error) {
+    } catch (vtrs::RuntimeError& error) {
         vtrs::Logger::fatal(error.what());
         return EXIT_FAILURE;
     }
 
     application->printGPUInfo();
+
+    try {
+        if (model_type == "object") {
+            application->loadModel(texture_file, model_file);
+
+        } else {
+            application->loadCube(texture_file);
+        }
+    } catch (vtrs::RuntimeError& error) {
+        vtrs::Logger::fatal(error.what());
+
+        delete application;
+        delete xcb_client;
+
+        return EXIT_FAILURE;
+    }
 
     while (true) {
         auto event = xcb_client->pollEvents();
@@ -65,10 +81,20 @@ int testVulkanModel() {
     return EXIT_SUCCESS;
 }
 
-int main() {
+int main(int argc, char** argv) {
+
+    if (argc <= 2) {
+        vtrs::Logger::print("Usage: vulkan-test <model-type> <texture-file> [model-file]");
+        return 0;
+    }
+
     vtrs::RendererContext::initialise();
 
-    int status = testVulkanModel();
+    std::string model_type = argv[1];
+    std::string texture_file = argv[2];
+    std::string model_file = argc >= 4 ? argv[3] : "";
+
+    int status = testVulkanModel(model_type, texture_file, model_file);
 
     vtrs::RendererContext::destroy();
     return status;
