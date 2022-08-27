@@ -148,7 +148,7 @@ uint32_t vtrs::RendererGPU::getDeviceId() const {
     return m_properties->deviceID;
 }
 
-uint32_t vtrs::RendererGPU::getGPUScore() const {
+uint32_t vtrs::RendererGPU::getScore() const {
     return m_score;
 }
 

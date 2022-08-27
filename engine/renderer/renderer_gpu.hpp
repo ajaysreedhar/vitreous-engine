@@ -115,7 +115,7 @@ public:
      * @brief Returns the score of the GPU represented by current object.
      * @return The GPU score.
      */
-    [[nodiscard]] uint32_t getGPUScore() const;
+    [[nodiscard]] uint32_t getScore() const;
 
     /**
      * Returns the total number of queue families enumerated in the GPU.
