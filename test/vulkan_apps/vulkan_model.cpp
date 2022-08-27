@@ -19,11 +19,17 @@
  * ========================================================================
  */
 
-#include <vector>
+#define STB_IMAGE_IMPLEMENTATION 1
+#define TINYOBJLOADER_IMPLEMENTATION 1
+
 #include <set>
+#include <unordered_map>
 #include <cstring>
 #include <limits>
-#include <fstream>
+#include <chrono>
+#include <glm/gtc/matrix_transform.hpp>
+#include "third_party/stb/stb_image.h"
+#include "third_party/tiny_object_loader/tiny_obj_loader.h"
 #include "platform/logger.hpp"
 #include "platform/linux/xcb_client.hpp"
 #include "renderer/except.hpp"
@@ -31,7 +37,7 @@
 #include "vulkan_model.hpp"
 
 std::vector<vtest::Vertex> vtest::VulkanModel::s_vertices {};
-std::vector<uint16_t> vtest::VulkanModel::s_indices {};
+std::vector<uint32_t> vtest::VulkanModel::s_indices {};
 
 VkVertexInputBindingDescription vtest::Vertex::getInputBindingDescription() {
     VkVertexInputBindingDescription description {0, sizeof(vtest::Vertex), VK_VERTEX_INPUT_RATE_VERTEX};
@@ -39,18 +45,23 @@ VkVertexInputBindingDescription vtest::Vertex::getInputBindingDescription() {
     return description;
 }
 
-std::array<VkVertexInputAttributeDescription, 2> vtest::Vertex::getInputAttributeDescription() {
-    std::array<VkVertexInputAttributeDescription, 2> descriptions {};
+std::array<VkVertexInputAttributeDescription, 3> vtest::Vertex::getInputAttributeDescription() {
+    std::array<VkVertexInputAttributeDescription, 3> descriptions {};
 
     descriptions.at(0).binding = 0;
     descriptions.at(0).location = 0;
-    descriptions.at(0).format = VK_FORMAT_R32G32_SFLOAT;
+    descriptions.at(0).format = VK_FORMAT_R32G32B32_SFLOAT;
     descriptions.at(0).offset = offsetof(vtest::Vertex, coordinate);
 
     descriptions.at(1).binding = 0;
     descriptions.at(1).location = 1;
     descriptions.at(1).format = VK_FORMAT_R32G32B32_SFLOAT;
     descriptions.at(1).offset = offsetof(vtest::Vertex, rgbColor);
+
+    descriptions.at(2).binding = 0;
+    descriptions.at(2).location = 2;
+    descriptions.at(2).format = VK_FORMAT_R32G32_SFLOAT;
+    descriptions.at(2).offset = offsetof(vtest::Vertex, textureXY);
 
     return descriptions;
 }
@@ -65,6 +76,10 @@ vtrs::RendererGPU *vtest::VulkanModel::findDiscreteGPU_() {
     }
 
     return device;
+}
+
+bool vtest::VulkanModel::hasStencilComponent_(VkFormat format) {
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
 struct vtest::SPIRVBytes vtest::VulkanModel::readSPIRVShader(const std::string &path) {
@@ -99,6 +114,23 @@ uint32_t vtest::VulkanModel::findMemoryType_(uint32_t filter, VkMemoryPropertyFl
     throw vtrs::RuntimeError("Unable to find required memory type.", vtrs::RuntimeError::E_TYPE_GENERAL);
 }
 
+VkFormat vtest::VulkanModel::findSupportedFormat_(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+    for (VkFormat format : candidates) {
+        VkFormatProperties properties {};
+        vkGetPhysicalDeviceFormatProperties(m_gpu->getDeviceHandle(), format, &properties);
+
+        if (tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & features) == features) {
+            return format;
+        }
+
+        if (tiling == VK_IMAGE_TILING_OPTIMAL && (properties.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+
+    throw vtrs::RuntimeError("Failed to find supported format!", vtrs::RuntimeError::E_TYPE_GENERAL);
+}
+
 void vtest::VulkanModel::createSurface_(vtrs::XCBConnection* connection, uint32_t window) {
     VkXcbSurfaceCreateInfoKHR surface_info {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
     surface_info.connection = connection;
@@ -128,6 +160,8 @@ void vtest::VulkanModel::createLogicalDevice_() {
     }
 
     VkPhysicalDeviceFeatures gpu_features {};
+    gpu_features.samplerAnisotropy = VK_TRUE;
+
     std::vector<const char*> req_extensions;
     req_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
@@ -316,24 +350,40 @@ void vtest::VulkanModel::createRenderPass_() {
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
     };
 
-    VkAttachmentReference attachment_ref {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    VkAttachmentDescription depth_attachment{};
+    depth_attachment.format = findSupportedFormat_({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+                                                   VK_IMAGE_TILING_OPTIMAL,
+                                                   VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference color_reference {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    VkAttachmentReference depth_reference {1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
 
     VkSubpassDescription subpass_desc {};
     subpass_desc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass_desc.colorAttachmentCount = 1;
-    subpass_desc.pColorAttachments = &attachment_ref;
+    subpass_desc.pColorAttachments = &color_reference;
+    subpass_desc.pDepthStencilAttachment = &depth_reference;
 
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.srcAccessMask = 0;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    std::array<VkAttachmentDescription, 2> attachment_list {color_attachment, depth_attachment};
 
     VkRenderPassCreateInfo render_pass_info {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-    render_pass_info.attachmentCount = 1;
-    render_pass_info.pAttachments = &color_attachment;
+    render_pass_info.attachmentCount = attachment_list.size();
+    render_pass_info.pAttachments = attachment_list.data();
     render_pass_info.subpassCount = 1;
     render_pass_info.pSubpasses = &subpass_desc;
     render_pass_info.dependencyCount = 1;
@@ -341,6 +391,79 @@ void vtest::VulkanModel::createRenderPass_() {
 
     auto result = vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_renderPass);
     VTRS_ASSERT_VK_RESULT(result, "Unable to create render pass.")
+}
+
+void vtest::VulkanModel::createDescSetLayout_() {
+    VkDescriptorSetLayoutBinding ubo_binding {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT};
+    VkDescriptorSetLayoutBinding sampler_binding {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT};
+
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {ubo_binding, sampler_binding};
+
+    VkDescriptorSetLayoutCreateInfo layout_info {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+    layout_info.bindingCount = bindings.size();
+    layout_info.pBindings = bindings.data();
+
+    auto result = vkCreateDescriptorSetLayout(m_device, &layout_info, nullptr, &m_descSetLayout);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create UBO descriptor set layout.")
+}
+
+void vtest::VulkanModel::createDescPool_() {
+    std::array<VkDescriptorPoolSize, 2> pool_sizes {};
+    pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pool_sizes[0].descriptorCount = static_cast<uint32_t>(VTEST_MAX_FRAMES_IN_FLIGHT);
+    pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pool_sizes[1].descriptorCount = static_cast<uint32_t>(VTEST_MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorPoolCreateInfo pool_info {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+    pool_info.poolSizeCount = pool_sizes.size();
+    pool_info.pPoolSizes = pool_sizes.data();
+    pool_info.maxSets = VTEST_MAX_FRAMES_IN_FLIGHT;
+
+    auto result = vkCreateDescriptorPool(m_device, &pool_info, nullptr, &m_descPool);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create UBO descriptor pool.")
+}
+
+void vtest::VulkanModel::createDescSets_() {
+    std::vector<VkDescriptorSetLayout> layouts (VTEST_MAX_FRAMES_IN_FLIGHT, m_descSetLayout);
+
+    VkDescriptorSetAllocateInfo alloc_info {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+    alloc_info.descriptorPool = m_descPool;
+    alloc_info.descriptorSetCount = VTEST_MAX_FRAMES_IN_FLIGHT;
+    alloc_info.pSetLayouts = layouts.data();
+
+    m_descSets.resize(VTEST_MAX_FRAMES_IN_FLIGHT);
+
+    auto result = vkAllocateDescriptorSets(m_device, &alloc_info, m_descSets.data());
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create descriptor sets.")
+
+    for (size_t index = 0; index < VTEST_MAX_FRAMES_IN_FLIGHT; index++) {
+        VkDescriptorBufferInfo buffer_info {
+            m_uniformBuffer.at(index),
+            0,
+            sizeof(vtest::UniformBufferObject)
+        };
+
+        VkDescriptorImageInfo image_info {m_textureBundle.sampler, m_textureBundle.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+
+        std::array<VkWriteDescriptorSet, 2> descriptor_writes {};
+        descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_writes[0].dstSet = m_descSets.at(index);
+        descriptor_writes[0].dstBinding = 0;
+        descriptor_writes[0].dstArrayElement = 0;
+        descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptor_writes[0].descriptorCount = 1;
+        descriptor_writes[0].pBufferInfo = &buffer_info;
+
+        descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_writes[1].dstSet = m_descSets.at(index);
+        descriptor_writes[1].dstBinding = 1;
+        descriptor_writes[1].dstArrayElement = 0;
+        descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptor_writes[1].descriptorCount = 1;
+        descriptor_writes[1].pImageInfo = &image_info;
+
+        vkUpdateDescriptorSets(m_device, descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
+    }
 }
 
 void vtest::VulkanModel::setupGraphicsPipeline_() {
@@ -404,7 +527,7 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
     rasterizer_info.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer_info.lineWidth = 1.0f;
     rasterizer_info.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer_info.depthBiasEnable = VK_FALSE;
 
     VkPipelineMultisampleStateCreateInfo multisample_info {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
@@ -433,13 +556,20 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
     }
 
     VkPipelineLayoutCreateInfo layout_info {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    layout_info.setLayoutCount = 0; // Optional
-    layout_info.pSetLayouts = nullptr; // Optional
+    layout_info.setLayoutCount = 1;
+    layout_info.pSetLayouts = &m_descSetLayout;
     layout_info.pushConstantRangeCount = 0; // Optional
     layout_info.pPushConstantRanges = nullptr; // Optional
 
     auto result = vkCreatePipelineLayout(m_device, &layout_info, nullptr, &m_pipelineLayout);
     VTRS_ASSERT_VK_RESULT(result, "Unable to create pipeline layout.")
+
+    VkPipelineDepthStencilStateCreateInfo depth_stencil_info {VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+    depth_stencil_info.depthTestEnable = VK_TRUE;
+    depth_stencil_info.depthWriteEnable = VK_TRUE;
+    depth_stencil_info.depthCompareOp = VK_COMPARE_OP_LESS;
+    depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
+    depth_stencil_info.stencilTestEnable = VK_FALSE;
 
     VkGraphicsPipelineCreateInfo pipeline_info {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
     pipeline_info.stageCount = 2;
@@ -450,7 +580,7 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
     pipeline_info.pViewportState = &viewport_info;
     pipeline_info.pRasterizationState = &rasterizer_info;
     pipeline_info.pMultisampleState = &multisample_info;
-    pipeline_info.pDepthStencilState = nullptr;
+    pipeline_info.pDepthStencilState = &depth_stencil_info;
     pipeline_info.pColorBlendState = &color_blend_info;
     pipeline_info.layout = m_pipelineLayout;
     pipeline_info.renderPass = m_renderPass;
@@ -465,16 +595,40 @@ void vtest::VulkanModel::setupGraphicsPipeline_() {
     vkDestroyShaderModule(m_device, frag_shader_module, nullptr);
 }
 
+void vtest::VulkanModel::createDepthResources_() {
+    VkFormat depth_format = findSupportedFormat_({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+                                                VK_IMAGE_TILING_OPTIMAL,
+                                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+    struct ImageObjectBundle bundle = createImage_(m_swapExtend.width, m_swapExtend.height, depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    m_depthResource.image = bundle.image;
+    m_depthResource.view = bundle.view;
+    m_depthResource.memory = bundle.memory;
+
+    VkImageViewCreateInfo view_info {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    view_info.image = m_depthResource.image;
+    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view_info.format = depth_format;
+    view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    view_info.subresourceRange.baseMipLevel = 0;
+    view_info.subresourceRange.levelCount = 1;
+    view_info.subresourceRange.baseArrayLayer = 0;
+    view_info.subresourceRange.layerCount = 1;
+
+    auto result = vkCreateImageView(m_device, &view_info, nullptr, &(m_depthResource.view));
+    VTRS_ASSERT_VK_RESULT(result, "Method createDepthResources_ failed created while creating image views.")
+}
+
 void vtest::VulkanModel::createFramebuffers_() {
     m_swapFramebuffers.resize(m_swapViews.size());
 
     VkResult result;
     for (size_t index = 0; index < m_swapViews.size(); index++) {
-        VkImageView attachments[] = { m_swapViews.at(index) };
+        VkImageView attachments[] = { m_swapViews.at(index), m_depthResource.view };
 
         VkFramebufferCreateInfo framebuffer_info {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
         framebuffer_info.renderPass = m_renderPass;
-        framebuffer_info.attachmentCount = 1;
+        framebuffer_info.attachmentCount = 2;
         framebuffer_info.pAttachments = attachments;
         framebuffer_info.width = m_swapExtend.width;
         framebuffer_info.height = m_swapExtend.height;
@@ -514,15 +668,17 @@ void vtest::VulkanModel::recordCommands_(VkCommandBuffer command_buffer, uint32_
     auto result = vkBeginCommandBuffer(command_buffer, &command_buffer_info);
     VTRS_ASSERT_VK_RESULT(result, "Unable to start recording command command_buffer.")
 
-    VkClearValue clear_colour {{{0.004f, 0.00266f, 0.0088f, 1.0f}}};
+    std::array<VkClearValue, 2> clear_colours {};
+    clear_colours[0].color = {{0.004f, 0.00266f, 0.0088f, 1.0f}};
+    clear_colours[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo render_pass_info {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     render_pass_info.renderPass = m_renderPass;
     render_pass_info.framebuffer = m_swapFramebuffers.at(image_index);
     render_pass_info.renderArea.offset = {0, 0};
     render_pass_info.renderArea.extent = m_swapExtend;
-    render_pass_info.clearValueCount = 1;
-    render_pass_info.pClearValues = &clear_colour;
+    render_pass_info.clearValueCount = clear_colours.size();
+    render_pass_info.pClearValues = clear_colours.data();
 
     vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
@@ -538,52 +694,13 @@ void vtest::VulkanModel::recordCommands_(VkCommandBuffer command_buffer, uint32_
     VkRect2D scissor{{ 0, 0 }, m_swapExtend};
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-    /*
-    if (m_vertexFactor >= 360) {
-        m_vertexFactor = 0;
-    }
-
-
-    auto vertex_factor = static_cast<float>(std::sin(m_vertexFactor * (M_PI/180)));
-
-    // Coordinates
-    s_vertices.at(0).coordinate[0] = vertex_factor;
-    s_vertices.at(1).coordinate[0] = 0 - vertex_factor;
-    s_vertices.at(2).coordinate[1] = 0 - vertex_factor;
-
-    s_vertices.at(3).coordinate[0] = vertex_factor;
-    s_vertices.at(4).coordinate[1] = vertex_factor;
-    s_vertices.at(5).coordinate[0] = 0 - vertex_factor;
-
-    // Colors
-    s_vertices.at(0).rgbColor[0] = std::abs(vertex_factor);
-    s_vertices.at(0).rgbColor[1] = 1 - std::abs(vertex_factor);
-
-    s_vertices.at(1).rgbColor[0] = std::abs(vertex_factor);
-    s_vertices.at(1).rgbColor[2] = 1 - std::abs(vertex_factor);
-
-    s_vertices.at(2).rgbColor[1] = std::abs(vertex_factor);
-    s_vertices.at(2).rgbColor[2] = 1 - std::abs(vertex_factor);
-
-    s_vertices.at(3).rgbColor[1] = 1 - std::abs(vertex_factor);
-    s_vertices.at(3).rgbColor[2] = std::abs(vertex_factor);
-
-    s_vertices.at(4).rgbColor[0] = std::abs(vertex_factor);
-    s_vertices.at(4).rgbColor[1] = 1 - std::abs(vertex_factor);
-
-    s_vertices.at(5).rgbColor[1] = std::abs(vertex_factor);
-    s_vertices.at(5).rgbColor[2] = 1 - std::abs(vertex_factor);
-
-    m_vertexFactor += 0.9f;
-
-    memcpy(m_vertexData, s_vertices.data(), static_cast<size_t>(sizeof(s_vertices.at(0)) * s_vertices.size()));
-    // */
-
     VkBuffer vertex_buffers[] = {m_vertexBuffer};
     VkDeviceSize offsets[] = {0};
 
     vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
-    vkCmdBindIndexBuffer(command_buffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(command_buffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &(m_descSets.at(m_currentFrame)), 0, nullptr);
 
     vkCmdDrawIndexed(command_buffer, s_indices.size(), 1, 0, 0, 0);
     vkCmdEndRenderPass(command_buffer);
@@ -671,6 +788,47 @@ vtest::BufferObjectBundle vtest::VulkanModel::createBuffer_(VkDeviceSize buffer_
     return bundle;
 }
 
+vtest::ImageObjectBundle
+vtest::VulkanModel::createImage_(uint32_t width,
+                                 uint32_t height,
+                                 VkFormat format,
+                                 VkImageTiling tiling,
+                                 VkImageUsageFlags usage_flags,
+                                 VkMemoryPropertyFlags memory_flags) {
+
+    ImageObjectBundle bundle {VK_NULL_HANDLE, VK_NULL_HANDLE};
+    VkMemoryRequirements mem_reqs {};
+
+    VkImageCreateInfo image_info {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    image_info.imageType = VK_IMAGE_TYPE_2D;
+    image_info.extent.width = width;
+    image_info.extent.height = height;
+    image_info.extent.depth = 1;
+    image_info.mipLevels = 1;
+    image_info.arrayLayers = 1;
+    image_info.format = format;
+    image_info.tiling = tiling;
+    image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    image_info.usage = usage_flags;
+    image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    auto result = vkCreateImage(m_device, &image_info, nullptr, &(bundle.image));
+    VTRS_ASSERT_VK_RESULT(result, "Failed to create image bundle.")
+
+    vkGetImageMemoryRequirements(m_device, bundle.image, &mem_reqs);
+
+    VkMemoryAllocateInfo alloc_info {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    alloc_info.allocationSize = mem_reqs.size;
+    alloc_info.memoryTypeIndex = findMemoryType_(mem_reqs.memoryTypeBits, memory_flags);
+
+    result = vkAllocateMemory(m_device, &alloc_info, nullptr, &(bundle.memory));
+    VTRS_ASSERT_VK_RESULT(result, "Failed to allocate memory for image bundle.")
+
+    vkBindImageMemory(m_device, bundle.image, bundle.memory, 0);
+    return bundle;
+}
+
 void vtest::VulkanModel::createVertexBuffer_() {
     VkDeviceSize buffer_size = sizeof(s_vertices.at(0)) * s_vertices.size();
     BufferObjectBundle staging_bundle = createBuffer_(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -718,6 +876,188 @@ void vtest::VulkanModel::createIndexBuffer_() {
     vkFreeMemory(m_device, staging_bundle.memory, nullptr);
 }
 
+void vtest::VulkanModel::createUniformBuffers_() {
+    VkDeviceSize buffer_size = sizeof (struct vtest::UniformBufferObject);
+    m_uniformBuffer.resize(VTEST_MAX_FRAMES_IN_FLIGHT);
+    m_uniformMemory.resize(VTEST_MAX_FRAMES_IN_FLIGHT);
+
+    for (int index = 0; index < VTEST_MAX_FRAMES_IN_FLIGHT; index++) {
+        auto bundle = createBuffer_(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        m_uniformBuffer.at(index) = bundle.buffer;
+        m_uniformMemory.at(index) = bundle.memory;
+    }
+}
+
+void vtest::VulkanModel::copyBufferToImage_(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+    VkCommandBufferAllocateInfo alloc_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandPool = m_graphicsCmdPool;
+    alloc_info.commandBufferCount = 1;
+
+    VkCommandBuffer command_buffer;
+    auto result = vkAllocateCommandBuffers(m_device, &alloc_info, &command_buffer);
+    VTRS_ASSERT_VK_RESULT(result, "Method copyBufferToImage_ failed while allocating command buffer.")
+
+    VkCommandBufferBeginInfo begin_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(command_buffer, &begin_info);
+
+    VkBufferImageCopy region {};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {width, height, 1};
+
+    vkCmdCopyBufferToImage(command_buffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    vkEndCommandBuffer(command_buffer);
+
+    VkSubmitInfo submit_info {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffer;
+
+    vkQueueSubmit(m_graphicsQueue, 1, &submit_info, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_graphicsQueue);
+
+    vkFreeCommandBuffers(m_device, m_graphicsCmdPool, 1, &command_buffer);
+}
+
+void vtest::VulkanModel::transitionImageLayout_(VkImage image, VkFormat, VkImageLayout old_layout, VkImageLayout new_layout) {
+    VkCommandBufferAllocateInfo alloc_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandPool = m_graphicsCmdPool;
+    alloc_info.commandBufferCount = 1;
+
+    VkCommandBuffer command_buffer;
+    auto result = vkAllocateCommandBuffers(m_device, &alloc_info, &command_buffer);
+    VTRS_ASSERT_VK_RESULT(result, "Method transitionImageLayout_ failed while allocating command buffer.")
+
+    VkCommandBufferBeginInfo begin_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(command_buffer, &begin_info);
+
+    VkImageMemoryBarrier barrier {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    barrier.oldLayout = old_layout;
+    barrier.newLayout = new_layout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags src_stage;
+    VkPipelineStageFlags dst_stage;
+
+    if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    } else if (old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+    } else if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    } else {
+        throw vtrs::RuntimeError("Unsupported layout transition.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    vkEndCommandBuffer(command_buffer);
+
+    VkSubmitInfo submit_info {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffer;
+
+    vkQueueSubmit(m_graphicsQueue, 1, &submit_info, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_graphicsQueue);
+
+    vkFreeCommandBuffers(m_device, m_graphicsCmdPool, 1, &command_buffer);
+}
+
+void vtest::VulkanModel::createTextureImage_(const std::string& file_path) {
+    int image_width;
+    int image_height;
+    int image_channels;
+
+    stbi_uc* pixels = stbi_load(file_path.c_str(), &image_width, &image_height, &image_channels, STBI_rgb_alpha);
+
+    if (pixels == nullptr) {
+        throw vtrs::RuntimeError("Unable to load texture image.", vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    VkDeviceSize image_size = image_width * image_height * 4;
+    vtest::BufferObjectBundle staging_bundle = createBuffer_(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    void* buffer_data;
+    vkMapMemory(m_device, staging_bundle.memory, 0, image_size, 0, &buffer_data);
+    memcpy(buffer_data, pixels, static_cast<size_t>(image_size));
+    vkUnmapMemory(m_device, staging_bundle.memory);
+
+    stbi_image_free(pixels);
+
+    auto image_bundle = createImage_(image_width, image_height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    m_textureBundle.image  = image_bundle.image;
+    m_textureBundle.memory = image_bundle.memory;
+
+    transitionImageLayout_(m_textureBundle.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    copyBufferToImage_(staging_bundle.buffer, m_textureBundle.image, static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height));
+    transitionImageLayout_(m_textureBundle.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    VkImageViewCreateInfo view_info {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    view_info.image = m_textureBundle.image;
+    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view_info.format = VK_FORMAT_R8G8B8A8_SRGB;
+    view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    view_info.subresourceRange.baseMipLevel = 0;
+    view_info.subresourceRange.levelCount = 1;
+    view_info.subresourceRange.baseArrayLayer = 0;
+    view_info.subresourceRange.layerCount = 1;
+
+    auto result = vkCreateImageView(m_device, &view_info, nullptr, &(m_textureBundle.view));
+    VTRS_ASSERT_VK_RESULT(result, "Method createTextureImage_ failed while creating image view.")
+
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.maxAnisotropy =  m_gpu->getGPULimit<float>("maxSamplerAnisotropy");
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+    result = vkCreateSampler(m_device, &samplerInfo, nullptr, &(m_textureBundle.sampler));
+    VTRS_ASSERT_VK_RESULT(result, "Method createTextureImage_ failed while creating sampler")
+
+    vkDestroyBuffer(m_device, staging_bundle.buffer, nullptr);
+    vkFreeMemory(m_device, staging_bundle.memory, nullptr);
+}
 
 void vtest::VulkanModel::bootstrap_() {
     m_familyIndices.graphicsFamily = m_gpu->getQueueFamilyIndex(vtrs::RendererGPU::QUEUE_FAMILY_INDEX_GRAPHICS);
@@ -737,29 +1077,39 @@ void vtest::VulkanModel::bootstrap_() {
     createSwapchain_();
     createImageViews_();
     createRenderPass_();
+    createDescSetLayout_();
     setupGraphicsPipeline_();
+    createDepthResources_();
     createFramebuffers_();
     createCommandPools_();
-    createVertexBuffer_();
-    createIndexBuffer_();
     allocateCommandBuffers_();
     createSyncObjects_();
 }
 
+void vtest::VulkanModel::updateUniformBuffers_(uint32_t current_frame) const {
+    static auto start_time = std::chrono::high_resolution_clock::now();
+    auto current_time = std::chrono::high_resolution_clock::now();
+
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+
+    UniformBufferObject ubo {};
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    float aspect = static_cast<float>(m_swapExtend.width) / static_cast<float>(m_swapExtend.height);
+
+    ubo.projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10.0f);
+
+    /* Inverting Y-axis. */
+    ubo.projection[1][1] *= -1;
+
+    void* buffer_data;
+    vkMapMemory(m_device, m_uniformMemory.at(current_frame), 0, sizeof(ubo), 0, &buffer_data);
+    memcpy(buffer_data, &ubo, sizeof(ubo));
+    vkUnmapMemory(m_device, m_uniformMemory.at(current_frame));
+}
+
 vtest::VulkanModel *vtest::VulkanModel::factory(vtrs::XCBClient* client, vtrs::XCBWindow window) {
-    if (s_vertices.empty()) {
-        s_vertices.push_back({{-1.0f, -1.0f}, {0.7f, 0.3f, 1.0f}});
-        s_vertices.push_back({{1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
-        s_vertices.push_back({{-1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
-        s_vertices.push_back({{-1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}});
-        s_vertices.push_back({{1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}});
-        s_vertices.push_back({{1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
-
-        s_indices.push_back(0);
-        s_indices.push_back(1);
-        s_indices.push_back(2);
-    }
-
     auto application = new VulkanModel();
     application->createSurface_(client->getConnection(), window.identifier);
     application->bootstrap_();
@@ -796,8 +1146,12 @@ vtest::VulkanModel::~VulkanModel() {
         vkDestroySemaphore(m_device, m_syncObjects.imageAvailableSem.at(index), nullptr);
         vkDestroySemaphore(m_device, m_syncObjects.renderFinishedSem.at(index), nullptr);
         vkDestroyFence(m_device, m_syncObjects.inFlightFence.at(index), nullptr);
+
+        vkDestroyBuffer(m_device, m_uniformBuffer.at(index), nullptr);
+        vkFreeMemory(m_device, m_uniformMemory.at(index), nullptr);
     }
 
+    vkDestroyDescriptorPool(m_device, m_descPool, nullptr);
     vkDestroyCommandPool(m_device, m_transferCmdPool, nullptr);
     vkDestroyCommandPool(m_device, m_graphicsCmdPool, nullptr);
 
@@ -809,9 +1163,20 @@ vtest::VulkanModel::~VulkanModel() {
     vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
     vkDestroyRenderPass(m_device, m_renderPass, nullptr);
 
+    vkDestroyDescriptorSetLayout(m_device, m_descSetLayout, nullptr);
+
     for(auto image_view : m_swapViews) {
         vkDestroyImageView(m_device, image_view, nullptr);
     }
+
+    vkDestroyImageView(m_device, m_depthResource.view, nullptr);
+    vkDestroyImage(m_device, m_depthResource.image, nullptr);
+    vkFreeMemory(m_device, m_depthResource.memory, nullptr);
+
+    vkDestroyImageView(m_device, m_textureBundle.view, nullptr);
+    vkDestroySampler(m_device, m_textureBundle.sampler, nullptr);
+    vkDestroyImage(m_device, m_textureBundle.image, nullptr);
+    vkFreeMemory(m_device, m_textureBundle.memory, nullptr);
 
     vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
     vkDestroyDevice(m_device, nullptr);
@@ -846,6 +1211,8 @@ bool vtest::VulkanModel::drawFrame() {
 
     vkResetCommandBuffer(m_commandBuffers.at(m_currentFrame), /*VkCommandBufferResetFlagBits*/ 0);
     recordCommands_(m_commandBuffers.at(m_currentFrame), image_index);
+
+    updateUniformBuffers_(m_currentFrame);
 
     VkSubmitInfo submit_info {VK_STRUCTURE_TYPE_SUBMIT_INFO};
 
@@ -894,11 +1261,11 @@ void vtest::VulkanModel::rebuildSwapchain() {
 
     waitIdle();
 
-    for (auto buffer : m_swapFramebuffers) {
+    for (auto buffer: m_swapFramebuffers) {
         vkDestroyFramebuffer(m_device, buffer, nullptr);
     }
 
-    for(auto image_view : m_swapViews) {
+    for (auto image_view: m_swapViews) {
         vkDestroyImageView(m_device, image_view, nullptr);
     }
 
@@ -906,5 +1273,100 @@ void vtest::VulkanModel::rebuildSwapchain() {
 
     createSwapchain_();
     createImageViews_();
+
+    vkDestroyImageView(m_device, m_depthResource.view, nullptr);
+    vkDestroyImage(m_device, m_depthResource.image, nullptr);
+    vkFreeMemory(m_device, m_depthResource.memory, nullptr);
+
+    createDepthResources_();
     createFramebuffers_();
+}
+
+void vtest::VulkanModel::loadCube(const std::string& texture_file) {
+    if (s_vertices.empty()) {
+        s_vertices.push_back({{-0.9f, -0.9f, 0.4f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}});  // 0
+        s_vertices.push_back({{0.9f, -0.9f, 0.4f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}});   // 1
+        s_vertices.push_back({{0.9f, 0.9f, 0.4f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}});    // 2
+        s_vertices.push_back({{-0.9f, 0.9f, 0.4f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}});   // 3
+
+        s_vertices.push_back({{-0.9f, -0.9f, -0.1f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}}); // 4
+        s_vertices.push_back({{0.9f, -0.9f, -0.1f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}});  // 5
+        s_vertices.push_back({{0.9f, 0.9f, -0.1f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}});   // 6
+        s_vertices.push_back({{-0.9f, 0.9f, -0.1f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}});  // 7
+
+        s_indices.push_back(0);
+        s_indices.push_back(1);
+        s_indices.push_back(2);
+        s_indices.push_back(0);
+        s_indices.push_back(2);
+        s_indices.push_back(3);
+
+        s_indices.push_back(4);
+        s_indices.push_back(5);
+        s_indices.push_back(6);
+        s_indices.push_back(6);
+        s_indices.push_back(7);
+        s_indices.push_back(4);
+
+        s_indices.push_back(4);
+        s_indices.push_back(0);
+        s_indices.push_back(7);
+
+        s_indices.push_back(3);
+        s_indices.push_back(4);
+        s_indices.push_back(7);
+    }
+
+    createTextureImage_(texture_file);
+    createUniformBuffers_();
+    createDescPool_();
+    createDescSets_();
+    createVertexBuffer_();
+    createIndexBuffer_();
+}
+
+void vtest::VulkanModel::loadModel(const std::string& texture_file, const std::string& model_file) {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, model_file.c_str())) {
+        throw vtrs::RuntimeError(warn + err, vtrs::RuntimeError::E_TYPE_GENERAL);
+    }
+
+    std::unordered_map<vtest::Vertex, uint32_t> unique_vertices {};
+
+    for (const auto& shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            vtest::Vertex vertex {};
+
+            vertex.coordinate = {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            };
+
+            vertex.textureXY = {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+            };
+
+            vertex.rgbColor = {1.0f, 1.0f, 1.0f};
+
+            if (unique_vertices.count(vertex) == 0) {
+                unique_vertices[vertex] = static_cast<uint32_t>(s_vertices.size());
+                s_vertices.push_back(vertex);
+            }
+
+            s_indices.push_back(unique_vertices[vertex]);
+        }
+    }
+
+    createTextureImage_(texture_file);
+    createUniformBuffers_();
+    createDescPool_();
+    createDescSets_();
+    createVertexBuffer_();
+    createIndexBuffer_();
 }

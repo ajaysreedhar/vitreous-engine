@@ -21,8 +21,15 @@
 
 #pragma once
 
+#define GLM_FORCE_RADIANS 1
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE 1
+#define GLM_ENABLE_EXPERIMENTAL 1
+
+#include <vector>
 #include <optional>
 #include <array>
+#include <glm/gtx/hash.hpp>
+#include <glm/glm.hpp>
 #include "platform/linux/xcb_client.hpp"
 #include "renderer/renderer_context.hpp"
 
@@ -58,12 +65,36 @@ struct BufferObjectBundle {
     VkDeviceMemory memory = VK_NULL_HANDLE;
 };
 
+struct ImageObjectBundle {
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    VkSampler sampler = VK_NULL_HANDLE;
+};
+
+struct DepthResourceBundle {
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+};
+
 struct Vertex {
-    float coordinate[2];
-    float rgbColor[3];
+    glm::vec3 coordinate;
+    glm::vec3 rgbColor;
+    glm::vec2 textureXY;
 
     static VkVertexInputBindingDescription getInputBindingDescription();
-    static std::array<VkVertexInputAttributeDescription, 2> getInputAttributeDescription();
+    static std::array<VkVertexInputAttributeDescription, 3> getInputAttributeDescription();
+
+    bool operator==(const Vertex& other) const {
+        return coordinate == other.coordinate && rgbColor == other.rgbColor && textureXY == other.textureXY;
+    }
+};
+
+struct UniformBufferObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 projection;
 };
 
 /**
@@ -76,7 +107,7 @@ class VulkanModel {
 
 private: // *** Private members *** //
     static std::vector<Vertex> s_vertices;
-    static std::vector<uint16_t> s_indices;
+    static std::vector<uint32_t> s_indices;
 
     struct QueueFamilyIndices m_familyIndices {};
     vtrs::RendererGPU* m_gpu;
@@ -94,6 +125,7 @@ private: // *** Private members *** //
     std::vector<VkImage> m_swapImages;
     std::vector<VkImageView> m_swapViews;
     VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
+    VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkRenderPass m_renderPass = VK_NULL_HANDLE;
 
@@ -112,13 +144,21 @@ private: // *** Private members *** //
 
     struct SyncObjectBundle m_syncObjects {};
 
+    VkDescriptorPool m_descPool = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSet>  m_descSets {};
+
+    std::vector<VkBuffer> m_uniformBuffer {};
+    std::vector<VkDeviceMemory> m_uniformMemory {};
+
+    struct ImageObjectBundle m_textureBundle {VK_NULL_HANDLE, VK_NULL_HANDLE};
+
+    struct DepthResourceBundle m_depthResource {};
+
     unsigned int m_currentFrame = 0;
 
     void* m_vertexData = nullptr;
 
     void* m_indexData = nullptr;
-
-    float m_vertexFactor = 0;
 
     /**
      * @brief Finds the discrete GPU from the enumerated list of GPUs.
@@ -133,7 +173,11 @@ private: // *** Private members *** //
      */
     static struct SPIRVBytes readSPIRVShader(const std::string& path);
 
+    static bool hasStencilComponent_(VkFormat format);
+
     uint32_t findMemoryType_(uint32_t filter, VkMemoryPropertyFlags flags);
+
+    VkFormat findSupportedFormat_(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
     /**
      * @brief Creates a XCB window surface.
@@ -172,17 +216,30 @@ private: // *** Private members *** //
     void createRenderPass_();
 
     /**
+     * @brief Creates descriptor set for uniform buffer object.
+     */
+    void createDescSetLayout_();
+
+    void createDescPool_();
+
+    void createDescSets_();
+
+    /**
      * @brief Sets up the graphics pipeline.
      */
     void setupGraphicsPipeline_();
+
+    void createDepthResources_();
 
     void createFramebuffers_();
 
     void createCommandPools_();
 
-    BufferObjectBundle createBuffer_(VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags);
+    struct BufferObjectBundle createBuffer_(VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags);
 
     void copyBuffer_(VkBuffer, VkBuffer, VkDeviceSize);
+
+    struct ImageObjectBundle createImage_(uint32_t, uint32_t, VkFormat, VkImageTiling, VkImageUsageFlags, VkMemoryPropertyFlags);
 
     /**
      * @brief Allocates command buffers for the frames in flight.
@@ -202,10 +259,20 @@ private: // *** Private members *** //
 
     void createIndexBuffer_();
 
+    void createUniformBuffers_();
+
+    void copyBufferToImage_(VkBuffer, VkImage, uint32_t, uint32_t);
+
+    void transitionImageLayout_(VkImage, VkFormat, VkImageLayout, VkImageLayout);
+
+    void createTextureImage_(const std::string&);
+
     /**
      * Bootstraps the application.
      */
     void bootstrap_();
+
+    void updateUniformBuffers_(uint32_t) const;
 
     /**
      * @brief Initialises the instance.
@@ -226,6 +293,10 @@ public: // *** Public members *** //
      */
     ~VulkanModel();
 
+    void loadCube(const std::string&);
+
+    void loadModel(const std::string&, const std::string&);
+
     bool drawFrame();
 
     void waitIdle();
@@ -242,3 +313,11 @@ public: // *** Public members *** //
 };
 
 } // namespace vtest
+
+namespace std {
+    template<> struct hash<vtest::Vertex> {
+        size_t operator()(vtest::Vertex const& vertex) const {
+            return ((hash<glm::vec3>()(vertex.coordinate) ^ (hash<glm::vec3>()(vertex.rgbColor) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.textureXY) << 1);
+        }
+    };
+}
