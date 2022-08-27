@@ -129,6 +129,14 @@ public:
      */
     std::vector<const char*> getExtensionNames();
 
+    template<typename T> T getGPULimit(const std::string& name) {
+        if (name == "maxSamplerAnisotropy") {
+            return m_properties->limits.maxSamplerAnisotropy;
+        }
+
+        return -1;
+    }
+
     /**
      * @brief Prints the GPU information to the console.
      */
