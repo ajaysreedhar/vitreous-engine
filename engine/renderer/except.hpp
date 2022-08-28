@@ -30,7 +30,8 @@ class RendererError : public RuntimeError {
 public:
     enum ErrorKind: int {
         E_TYPE_GENERAL = 311,
-        E_TYPE_VK_RESULT
+        E_TYPE_VK_RESULT,
+        E_TYPE_INCOMPATIBLE
     };
 
     RendererError(const std::string& message, ErrorKind kind, int code) : RuntimeError(message, kind, code) {}
