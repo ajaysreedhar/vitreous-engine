@@ -22,10 +22,17 @@
 #pragma once
 
 #include "platform/linux/xcb_client.hpp"
+#include "platform/linux/wayland_client.hpp"
 #include "vulkan_api.hpp"
 
 namespace vtrs {
 
+/**
+ * @brief Represents a window surface for rendering.
+ *
+ * Window surfaces on Windows and Linux can be created
+ * by calling the appropriate constructor.
+ */
 class WindowSurface {
 
 private:
@@ -35,11 +42,18 @@ public:
 #if defined(VTRS_OS_TYPE_LINUX) && VTRS_OS_TYPE_LINUX == 1
 
     /**
-     * @brief Creates a Vulkan surface on a XCB window on Linux machines.
+     * @brief Creates a XCB surface on Linux machines.
      * @param connection Reference to the XCB connection
      * @param window Reference to a XCB window
      */
-    WindowSurface(vtrs::XCBConnection* connection, vtrs::XCBWindow* window);
+    explicit WindowSurface(vtrs::XCBConnection* connection, vtrs::XCBWindow* window);
+
+    /**
+     * @brief Creates Wayland surface on Linux machines.
+     * @param connection Reference to the XCB connection
+     * @param window Reference to a XCB window
+     */
+    explicit WindowSurface(vtrs::WaylandClient* client);
 #endif
 
     /**
@@ -48,4 +62,4 @@ public:
     ~WindowSurface();
 };
 
-}
+} // namespace vtrs

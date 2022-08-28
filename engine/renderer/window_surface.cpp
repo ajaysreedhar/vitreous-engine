@@ -32,6 +32,15 @@ vtrs::WindowSurface::WindowSurface(vtrs::XCBConnection* connection, vtrs::XCBWin
     auto result = vkCreateXcbSurfaceKHR(vtrs::RendererContext::getInstanceHandle(), &surface_info, nullptr, &m_surface);
     VTRS_ASSERT_VK_RESULT(result, "Unable to create XCB surface.")
 }
+
+vtrs::WindowSurface::WindowSurface(vtrs::WaylandClient* client) {
+    VkWaylandSurfaceCreateInfoKHR surface_info {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
+    surface_info.display = vtrs::WaylandClient::getDisplay();
+    surface_info.surface = client->getSurface();
+
+    auto result = vkCreateWaylandSurfaceKHR(vtrs::RendererContext::getInstanceHandle(), &surface_info, nullptr, &m_surface);
+    VTRS_ASSERT_VK_RESULT(result, "Unable to create Wayland surface.")
+}
 #endif
 
 vtrs::WindowSurface::~WindowSurface() {
