@@ -26,5 +26,5 @@
 
 #define VTRS_ASSERT_VK_RESULT(result, message) \
 if (result != VK_SUCCESS) { \
-    throw vtrs::RendererError(message, vtrs::RuntimeError::E_TYPE_VK_RESULT, result); \
+    throw vtrs::RendererError(message, vtrs::RendererError::E_TYPE_VK_RESULT, result); \
 }
