@@ -1,5 +1,5 @@
 /**
- * service_provider.hpp - Acts as a service provider.
+ * service_provider.hpp - Provides various rendering services.
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2021-present Ajay Sreedhar
@@ -18,3 +18,59 @@
  *
  * ========================================================================
  */
+
+#pragma once
+
+#include <set>
+#include "vulkan_api.hpp"
+#include "renderer_gpu.hpp"
+#include "surface_presenter.hpp"
+
+namespace vtrs {
+
+struct service_provider_opts {
+    std::set<uint32_t> queueFamilyIndices {};
+    VkBool32 enableAnisotropy = VK_TRUE;
+};
+
+class ServiceProvider {
+
+private:
+    VkDevice            m_logicalDevice = VK_NULL_HANDLE;
+    vtrs::RendererGPU*  m_rendererGPU = nullptr;
+
+    /**
+     * @brief Bootstraps the service provider.
+     * @param options Service provider configuration.
+     *
+     * The boostrap method will:
+     * - Create a Vulkan logical device.
+     */
+    void bootstrap_(struct service_provider_opts* options);
+
+    /**
+     * @brief Initialises member variables.
+     * @param hardware A GPU on which the service provider will work.
+     */
+    explicit ServiceProvider(RendererGPU*);
+
+public:
+    typedef struct service_provider_opts Options;
+
+    /**
+     * @brief Cleans up when an instance is deleted.
+     */
+    ~ServiceProvider();
+
+    /**
+     * @brief Creates a new service provider from the selected GPU.
+     * @param hardware A GPU on which the service provider will work.
+     * @param options Service provider configuration.
+     * @return An instance of the service provider class.
+     */
+    static ServiceProvider* from(RendererGPU*, ServiceProvider::Options*);
+
+    SurfacePresenter* createSurfacePresenter(vtrs::WindowSurface* surface);
+};
+
+} // namespace vtrs
