@@ -45,6 +45,7 @@ add_library(vtrs-renderer SHARED
         renderer/renderer_gpu.cpp       renderer/renderer_gpu.hpp
         renderer/window_surface.cpp     renderer/window_surface.hpp
         renderer/renderer_context.cpp   renderer/renderer_context.hpp
+        renderer/surface_presenter.cpp  renderer/surface_presenter.hpp
         renderer/service_provider.cpp   renderer/service_provider.hpp)
 target_link_libraries(vtrs-renderer PUBLIC ${Vulkan_LIBRARIES} vtrs-platform)
 target_include_directories(vtrs-renderer PUBLIC ${Vulkan_INCLUDE_DIRS} "${CMAKE_CURRENT_SOURCE_DIR}")
