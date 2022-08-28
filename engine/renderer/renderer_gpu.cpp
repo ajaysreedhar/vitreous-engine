@@ -1,5 +1,5 @@
 /**
- * gpu_device.cpp - Contains necessary definitions for representing a GPU.
+ * renderer_gpu.cpp - Contains necessary definitions for representing a GPU.
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2021-present Ajay Sreedhar

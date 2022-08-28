@@ -1,5 +1,5 @@
 /**
- * gpu_device.hpp - Contains necessary declarations for representing a GPU.
+ * renderer_gpu.hpp - Contains necessary declarations for representing a GPU.
  * ------------------------------------------------------------------------
  *
  * Copyright (c) 2021-present Ajay Sreedhar
