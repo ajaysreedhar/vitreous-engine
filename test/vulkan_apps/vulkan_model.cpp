@@ -70,7 +70,7 @@ vtrs::RendererGPU *vtest::VulkanModel::findDiscreteGPU_() {
     vtrs::RendererGPU* device = vtrs::RendererContext::getGPUList().front();
 
     for (auto next : vtrs::RendererContext::getGPUList()) {
-        if (next->getGPUScore() > device->getGPUScore()) {
+        if (next->getScore() > device->getScore()) {
             device = next;
         }
     }
