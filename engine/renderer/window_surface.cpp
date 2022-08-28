@@ -46,3 +46,7 @@ vtrs::WindowSurface::WindowSurface(vtrs::WaylandClient* client) {
 vtrs::WindowSurface::~WindowSurface() {
     vkDestroySurfaceKHR(vtrs::RendererContext::getInstanceHandle(), m_surface, nullptr);
 }
+
+VkSurfaceKHR vtrs::WindowSurface::getSurfaceHandle() const {
+    return m_surface;
+}

@@ -60,6 +60,8 @@ public:
      * @brief Cleans up when an instance is destroyed.
      */
     ~WindowSurface();
+
+    [[nodiscard]] VkSurfaceKHR getSurfaceHandle() const;
 };
 
 } // namespace vtrs
