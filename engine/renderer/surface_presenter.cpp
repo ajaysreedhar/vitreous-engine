@@ -170,10 +170,16 @@ vtrs::SurfacePresenter::factory(
 
     auto presenter = new SurfacePresenter(physical_device, logical_device);
     presenter->bootstrap_(surface->getSurfaceHandle(), options);
+
+    return presenter;
 }
 
 vtrs::SurfacePresenter::~SurfacePresenter() {
     vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, nullptr);
+
+    for (auto image_view : m_viewsChain) {
+        vkDestroyImageView(m_logicalDevice, image_view, nullptr);
+    }
 
     m_viewsChain.clear();
     m_imageChain.clear();
