@@ -133,6 +133,13 @@ public:
     [[nodiscard]] uint32_t getQueueFamilyIndex(QueueFamilyType) const;
 
     /**
+     * @brief Returns the queue family index required for the surface.
+     * @return The queue family index.
+     * @throws vtrs::RendererError Thrown if surface is not supported.
+     */
+    [[nodiscard]] uint32_t getQueueFamilyIndex(VkSurfaceKHR) const;
+
+    /**
      * @brief Returns the a list of extension names supported by this GPU.
      * @return A vector containing extension names.
      */

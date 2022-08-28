@@ -161,8 +161,21 @@ uint32_t vtrs::RendererGPU::getQueueFamilyIndex(vtrs::RendererGPU::QueueFamilyTy
         return m_qFamilyIndices.at(type);
 
     } catch (std::out_of_range&) {
-        throw RendererError("Queue family type not supported in current context.", vtrs::RendererError::E_TYPE_GENERAL);
+        throw RendererError("Queue family type not supported in current context.", vtrs::RendererError::E_TYPE_INCOMPATIBLE);
     }
+}
+
+uint32_t vtrs::RendererGPU::getQueueFamilyIndex(VkSurfaceKHR surface) const {
+    for (size_t index = 0; index < m_qFamilyCount; index++) {
+        VkBool32 is_supported = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(m_device, index, surface, &is_supported);
+
+        if (is_supported) {
+            return index;
+        }
+    }
+
+    throw vtrs::RendererError("GPU does not support the surface.", vtrs::RendererError::E_TYPE_INCOMPATIBLE);
 }
 
 std::vector<const char *> vtrs::RendererGPU::getExtensionNames() {
@@ -212,4 +225,3 @@ void vtrs::RendererGPU::printInfo() {
     vtrs::Logger::print("API Version:", m_properties->apiVersion);
     vtrs::Logger::print("");
 }
-
